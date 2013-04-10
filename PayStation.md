@@ -1,4 +1,13 @@
- <h2><a name="_Toc226620316">Знакомство с PayStation</a></h2>
+---
+layout: default
+paystationActive: active
+pygments: true
+---
+
+<div class="row-fluid">
+    <div class="span12"> 
+
+<h2><a name="_Toc226620316">Знакомство с PayStation</a></h2>
 
 <p>Xsolla PayStation является идеальным инструментом монетизации. Это полностью настраиваемый интерфейс оплаты со всеми функциями, которые могут вам понадобиться. PayStation легко адаптируется к вашим потребностям, от простой кнопки «купить», до множества других вариантов, описанных в данном руководстве. PayStation предоставляет пользователю наиболее удобные способы оплаты, автоматически сортируя их по многим критериям.</p>
 
@@ -468,3 +477,6 @@
 
     https://secure.xsolla.com/paystation2/?marketplace=paystation&theme=115& skip_step=0&project=7096&v1=demo&out=10&email=
     support@xsolla.com&sign=b305bc024e98ce774bbe303e7077a915
+    
+    </div>
+</div>
