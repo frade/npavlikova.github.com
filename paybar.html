@@ -1,0 +1,158 @@
+---
+layout: default
+paybarActive: active
+pygments: true
+---
+
+<div class="row-fluid">
+    <div class="span12">
+        <img src="img/paybar.png" alt=""/>
+        <h1>Introducing PayBar</h1>
+        <p>PayBar is Xsolla's latest in-game payment optimization innovation. PayBar maximizes conversions using minimal space by compactly displaying alternative payment options on your payment portal. Users can select payment options directly from PayBar to launch a full version of PayStation, so they can complete the transaction using their preferred method.</p>
+        <h2>Complete Customization in a Compact Size</h2>
+        <p>You can fully customize PayBar to fit your company's aesthetic. PayBar offers you up to seven unique and relevant payment methods, all within 100 pixels of width. PayBar comes with the full suite of Xsolla's services, including security, fraud and chargeback Protection, and our 24/7 customer service. PayBar is uniquely tailored to each user as well. The code of the program is completely dynamic; based on the habits of your users, one installation allows for millions of different configurations. Whereas most publishers can offer only credit card and PayPal, PayBar offers the customer the options they want. Using PayRank, Xsolla's patented payment aggregation software, the system applies learned behavior algorithms, geo-ip tracking, and other tools to offer your customers the best, most ideal options to make localized payments around the globe.</p>
+        <h2>Easy Integration</h2>
+        <p>Integration is fast and easy. PayBar's appearance is completely customizable. You can customize the appearance yourself or contact Xsolla for ready-to-use html code that you can paste into your site. Our technicians can ensure you are up and running in one day. Do not lose conversions because your users cannot find a desirable payment option. Offer them the payment options they desire using PayBar.</p>
+        <h2>Audience</h2>
+        <p>This document is intended for developers who want to integrate Xsolla PayBar into their games. It assumes you are familiar with the basic HTML concepts.</p>
+        <h1>Integrating PayBar</h1>
+        <p>Integrating PayBar is easy and is accomplished by embedding code in your game that launches the js-function XPBWidget.init along with the desired parameters. See the Example for more details.</p>
+        <h2>PayBar Parameters</h2>
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Field Name</th>
+                    <th>Description</th>
+                    <th>Example</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>element_id</td>
+                    <td>ID of html element</td>
+                    <td>paybar</td>
+                </tr>
+                <tr>
+                    <td>type</td>
+                    <td>How to open PayStation:<br /><b>newwindow</b> - in new window<br /><b>lightbox</b> - in lightbox</td>
+                    <td>lightbox</td>
+                </tr>
+                <tr>
+                    <td>project</td>
+                    <td>ID of the project</td>
+                    <td>4783</td>
+                </tr>
+                <tr>
+                    <td>v1</td>
+                    <td>User's identification parameter (commonly a user's nickname in a game). 255 characters.</td>
+                    <td>demo</td>
+                </tr>
+                <tr>
+                    <td>v2</td>
+                    <td>Additional user's identification parameter (depending on the project settings). 200 characters.</td>
+                    <td>0</td>
+                </tr>
+                <tr>
+                    <td>v3</td>
+                    <td>Additional user's identification parameter (depending on the project settings). 100 characters.</td>
+                    <td>0</td>
+                </tr>
+                <tr>
+                    <td>out</td>
+                    <td>Game currency amount. Separator '.' (2 digits after the point).</td>
+                    <td>10</td>
+                </tr>
+                <tr>
+                    <td>email</td>
+                    <td>User's e-mail.</td>
+                    <td>mail@example.com</td>
+                </tr>
+                <tr>
+                    <td>scripthost</td>
+                    <td>The server that hosts the plug-in.</td>
+                    <td>https://test.project.com</td>
+                </tr>
+                <tr>
+                    <td>itemTemplate</td>
+                    <td>Pattern for displaying payments methods. (For example, if you don't want to see name of payment method, you can delete &lt;b&gt;%NAME%&lt;/b&gt;).</td>
+                    <td>&lt;span&gt;<br />&nbsp;&lt;a href="%HREF%" target="_blank"&gt;<br />&nbsp;&nbsp;&lt;img src="%ICON_SRC%" /&gt;<br />&nbsp;&nbsp;&lt;b&gt;%NAME%&lt;/b&gt;<br />&nbsp;&lt;/a&gt;<br />&lt;/span&gt;</td>
+                </tr>
+                <tr>
+                    <td>css</td>
+                    <td>Path to the css-file.</td>
+                    <td>example.css</td>
+                </tr>
+                <tr>
+                    <td>local</td>
+                    <td>Localization:<br />ru - Russian<br />en - English</td>
+                    <td>en</td>
+                </tr>
+                <tr>
+                    <td>country</td>
+                    <td>Country (if null country will be recognized by IP-address).</td>
+                    <td>US</td>
+                </tr>
+                <tr>
+                    <td>errorCallback</td>
+                    <td>Function for error handling (in message).</td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td>doneCallback</td>
+                    <td>Function called after successful upload of PayBar.</td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td>template</td>
+                    <td>Pattern for displaying PayBar. There are three types of displaying, aparameters of pattern depend on its type.<br /><b>1)</b> id: 'inline' (in one line) Parameters: icon_count (number of payment methods), other (flag of displaying button for the other payment methods, takes the values 'true' and 'false')<br /><b>2)</b> id: 'slide' (paybar with slide arrows) Parameters: icon_count (number of payment methods), shift_count ((number of payment methods when scrolling), animation_speed (speed of animation)<br /><b>3)</b> id: 'show_more' (used in vertical position of PayBar, f.e. On the mobile phone) Parameters: icon_count (number of payment methods), other_count (number of payment methods when you click on the button Show more)</td>
+                    <td>template:<br />{<br />&nbsp;id: 'inline',<br />&nbsp;icon_count: 7,<br />&nbsp;other: true<br />}<br />template:<br />{<br />&nbsp;id: 'slide',<br />&nbsp;icon_count: '5',<br />&nbsp;shift_count: '3',<br />&nbsp;animation_speed: '200'<br />}<br />template:<br />{<br />&nbsp;id: 'show_more',<br />&nbsp;icon_count: '5',<br />&nbsp;other_count: '3'<br />}</td>
+                </tr>
+            </tbody>
+        </table>
+        <h3>Example</h3>
+        <a href="https://secure.xsolla.com/paybar/jswidget/example_doc.php?local=en&country=US">https://secure.xsolla.com/paybar/jswidget/example_doc.php?local=en&country=US</a><br />
+        {% highlight html+php %}
+        <?php
+        $fields = array('project' => '4783', 'v1' => 'demo', 'out' => '1', 'email' => 'support@xsolla.com', 'phone' => '', 'type' => 'lightbox', 'local' => '', 'country' => '');
+        foreach($fields as $field => $value)
+        {
+        if(isset($_GET[$field]))
+        $fields[$field] = $_GET[$field];
+        }
+        ?>
+        <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+        <html>
+            <head>
+                <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+                <title>JS widget Paybar</title>
+            </head>
+            <body>
+                <div class="payment-list" id="paybar"></div>
+                <script type="text/javascript" src="https://secure.xsolla.com/paybar/jswidget/paybar.js"></script>
+                <script type="text/javascript">
+                    XPBWidget.init
+                            ({
+                            element_id: 'paybar',
+                                    type: '<?php echo addslashes($fields['type']) ?>',
+                                    project: '<?php echo addslashes($fields['project']) ?>',
+                                    v1: '<?php echo addslashes($fields['v1']) ?>',
+                                    v2: '<?php echo addslashes($fields['v2']) ?>',
+                                    v3: '<?php echo addslashes($fields['v3']) ?>',
+                                    out: '<?php echo addslashes($fields['out']) ?>',
+                                    email: '<?php echo addslashes($fields['email']) ?>',
+                                    phone: '<?php echo addslashes($fields['phone']) ?>',
+                                    scripthost: 'https://secure.xsolla.com',
+                                    itemTemplate: '<span><a href="%HREF%" target="_blank"><img src="%ICON_SRC%" /><b>%NAME%</b></a></span>',
+                                    css: 'example4.css',
+                                    local: '<?php echo addslashes($fields['local']) ?>',
+                                    country: '<?php echo addslashes($fields['country']) ?>',
+                                    errorCallback: function(message, category) { alert('Error "' + message + '" at ' + category); },
+                                    doneCallback: function() {},
+                                    template: { id: 'inline', icon_count: 5, other: true }
+                            });
+                </script>
+            </body>
+        </html>
+        {% endhighlight %}
+    </div>
+</div>

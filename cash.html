@@ -1,0 +1,2330 @@
+---
+layout: default
+cashActive: active
+pygments: true
+---
+
+<div class="row-fluid">
+	<div class="span12">
+		<h1>About The API</h1>
+		<p>The Xsolla Cash API is a RESTful protocol which allows your application to sell virtual goods and services without the need to handle the payment transactions. By exporting the payment process to Xsolla your application will receive the following benefits:</p>
+		<ul>
+			<li>Users stay in your application and order payments directly from their linked account. This prevents them from making payments to the wrong account and it keeps them focused on your application.</li>
+			<li>Because Xsolla tells you exactly how much money was actually received you control payment reconciliation. You determine how to handle over-payments and under-payments.</li>
+			<li>Since their payment information has already been recorded your users don't need to waste time entering it again and can get back to doing what they were doing faster.</li>
+		</ul>
+
+		<h2>Requirements</h2>
+		<p>Your server:</p>
+		<ul>
+			<li>Should accept HTTP or HTTPS requests from the following IP addresses: <b>94.103.26.178</b> and <b>94.103.26.181</b>.</li>
+			<li>Must handle parameters passed by the GET method.</li>
+			<li>Must create a response in XML format using the UTF-8 character encoding.</li>
+			<li>Must respond to requests within 10 seconds.</li>
+		</ul>
+
+		<h2>Transactions</h2>
+		<p>Once you have implemented the Xsolla Cash API in your application, your users will be able to initiate payment requests. Once a payment has been made to your account, a payment notification will be sent to your server. If for some reason the payment must be canceled, a cancellation notification will be sent to your server. Your server will in turn process these notifications and generate a response accordingly.</p>
+
+		<h2>Creating Invoices</h2>
+		<p>When one of your users places an order, you will need to create an invoice describing it so that you can compare the invoice against the information you receive in the payment notification once the user has paid for the order.</p>
+
+		<h2>Notifications</h2>
+		<p>Your server should be prepared to process the following notifications:</p>
+		<ul>
+			<li>Payment</li>
+			<li>Cancellation</li>
+		</ul>
+
+		<h2>Database Structure</h2>
+		<p>Our examples assume that you will have a SQL database which stores information in the following tables:</p>
+{% highlight sql %}
+# A table for storing the invoices before they are processed.
+CREATE TABLE `checkout` (
+  `v1` INT(11) NOT NULL AUTO_INCREMENT ,
+  `v2` VARCHAR(255) NULL ,
+  `v3` VARCHAR(100) NULL ,
+  `amount` FLOAT NOT NULL ,
+  `currency_id` TINYINT NOT NULL DEFAULT 1 ,
+PRIMARY KEY (`v1`) )
+{% endhighlight %}
+{% highlight sql %}
+# A table for storing payment receipts from Xsolla.
+CREATE TABLE `payments` (
+  `invoice` INT(11) NOT NULL ,
+  `v1` VARCHAR(255) NOT NULL ,
+  `v2` VARCHAR(255) NULL ,
+  `v3` VARCHAR(100) NULL ,
+  `payment_date` TIMESTAMP NOT NULL ,
+  `amount` FLOAT NOT NULL ,
+  `canceled` TINYINT NOT NULL DEFAULT 0 ,
+PRIMARY KEY (`id`) )
+DEFAULT CHARACTER SET = utf8
+COLLATE = utf8_bin;
+{% endhighlight %}
+
+		<h1>Payment</h1>
+		<p>When a Xsolla Cash transaction is successfully completed a payment notification will be sent to your server. Once you have verified the authenticity of the notification your server must process the notification and provide a response within 10 seconds.</p>
+
+		<h2>Notification Fields</h2>
+		<table class="table table-striped">
+			<colgroup>
+				<col style="width:16%" />
+				<col style="width:11%" />
+				<col style="width:43%" />
+				<col style="width:15%" />
+				<col style="width:15%" />
+			</colgroup>
+			<thead>
+				<tr>
+					<th>Field Name</th>
+					<th>Type</th>
+					<th>Description</th>
+					<th>Required?</th>
+					<th>Example</th>
+				</tr>
+			</thead>
+			<tbody>
+				<tr>
+					<td>command</td>
+					<td>String</td>
+					<td>This field indicates which notification is being sent to your server. For payment notifications it will always be "pay".</td>
+					<td>Yes</td>
+					<td>pay</td>
+				</tr>
+				<tr>
+					<td>id</td>
+					<td>String</td>
+					<td>This field contains the order ID used in the Xsolla system to identify this payment.</td>
+					<td>Yes</td>
+					<td>7555545</td>
+				</tr>
+				<tr>
+					<td>v1</td>
+					<td>String</td>
+					<td>This field contains the unique identifier used in your system to identify the user which initiated this payment.</td>
+					<td>Yes</td>
+					<td>ORD12345</td>
+				</tr>
+				<tr>
+					<td>v2</td>
+					<td>String</td>
+					<td>This field contains the first additional reference number used in your system to identify the user which initiated this payment.</td>
+					<td>No</td>
+					<td>0</td>
+				</tr>
+				<tr>
+					<td>v3</td>
+					<td>String</td>
+					<td>This field contains the second additional reference number used in your system to identify the user which initiated this payment.</td>
+					<td>No</td>
+					<td>0</td>
+				</tr>
+				<tr>
+					<td>amount</td>
+					<td>Float</td>
+					<td>This field contains the amount of the payment made to your account by the user. It is a fraction with an accuracy of two decimal places. A decimal point '.' is used as a separation symbol.</td>
+					<td>Yes</td>
+					<td>123.45</td>
+				</tr>
+				<tr>
+					<td>currency</td>
+					<td>String</td>
+					<td>This field contains an abbreviation indicating which currency the payment amount is denominated in.</td>
+					<td>Yes</td>
+					<td>RUR</td>
+				</tr>
+				<tr>
+					<td>datetime</td>
+					<td>String</td>
+					<td>This field indicates the date and time at which the payment was made in the format "YYYYMMDDHHMMSS".</td>
+					<td>Yes</td>
+					<td>20130208110800</td>
+				</tr>
+				<tr>
+					<td>test</td>
+					<td>Integer</td>
+					<td>This field indicates whether or not the notification was a test instead of a genuine payment notification. A value of '1' indicates the notification was a test.  A value of '0' indicates that the notification is genuine.</td>
+					<td>No</td>
+					<td>1</td>
+				</tr>
+				<tr>
+					<td>bonus</td>
+					<td>String</td>
+					<td>Speak to your Xsolla account manager about our affiliate program.</td>
+					<td>No</td>
+					<td>bonussum</td>
+				</tr>
+				<tr>
+					<td>md5</td>
+					<td>String</td>
+					<td>This field contains an MD5 hash of a string containing the v1 field, amount field, currency field, id field and your secret key.</td>
+					<td>Yes</td>
+					<td>7c0a367c3f903d75d782f9e031d6623bfafec5e51045d05c</td>
+				</tr>
+			</tbody>
+		</table>
+
+		<h2>Verifying the Notification</h2>
+		<p>Before processing a notification you must first verify its authenticity. This is done by confirming the source IP address (if you are using DDoS protection, make sure you check the true source IP address) of the notification and by comparing the <i>sign</i> field with the MD5 hash you calculate for the notification. If the values do not match then the notification is not genuine and should be ignored. Once the authenticity of the notification has been verified your server should proceed with processing it. The following samples demonstrate the verification of an incoming notification.</p>
+		<p class="text-info"><b>Note:</b> The <i>sign</i> field should match an MD5 hash of a string containing the <i>v1</i> field, the <i>amount</i> field, the <i>currency</i> field, the <i>id</i> field and your secret key.</p>
+		<div class="tabbable">
+			<ul class="nav nav-tabs">
+				<li class="active"><a href="#payment_verify_php" data-toggle="tab">PHP v5.4</a></li>
+				<li><a href="#payment_verify_java" data-toggle="tab">Java</a></li>
+				<li><a href="#payment_verify_python" data-toggle="tab">Python</a></li>
+				<li><a href="#payment_verify_ruby" data-toggle="tab">Ruby</a></li>
+				<li><a href="#payment_verify_aspnet" data-toggle="tab">Asp.NET/C#</a></li>
+				<li><a href="#payment_verify_asp" data-toggle="tab">ASP/VBS</a></li>
+				<li><a href="#payment_verify_cpp" data-toggle="tab">C++</a></li>
+				<li><a href="#payment_verify_c" data-toggle="tab">C</a></li>
+			</ul>
+			<div class="tab-content">
+				<div class="tab-pane active" id="payment_verify_php">
+{% highlight php %}
+<?php
+function verifyNotification($secretKey, $remoteAddress, $v1, $v2, $v3, $amount, $currency, $id, $sign)
+{
+	$whiteList = array("94.103.26.178", "94.103.26.181");
+	if(in_array($remoteAddress, $whiteList) === false)
+		return(false);
+
+	$md5Hash = md5($v1 + $v2 + $v3 + $amount + $currency + $id + $secretKey);
+	if(strtolower($md5Hash) != strtolower($sign))
+		return(false);
+
+	return(true);
+}
+?>
+{% endhighlight %}
+				</div>
+				<div class="tab-pane" id="payment_verify_java">
+{% highlight java %}
+boolean verifyNotification(HttpServletRequest request, String secretKey)
+{
+	String[] whiteList = {"94.103.26.178", "94.103.26.181"};    
+	boolean ipFound = false;
+	for(String ip : XSOLLA_IPS)
+	{
+		if(ip.equals(request.getRemoteAddr()))
+			ipFound = true;
+	}
+	if(ipFound == false)
+		return(false);
+
+	String str = request.getParameter("v1") + request.getParameter("v2") + request.getParameter("v3") + request.getParameter("amount") + request.getParameter("currency") + request.getParameter("id") + secretKey;
+	java.security.MessageDigest md5 = java.security.MessageDigest.getInstance("MD5");
+	byte[] array = md5.digest(str.getBytes());
+	StringBuffer sb = new StringBuffer();
+	for(int i=0; i<array.length; ++i)
+		sb.append(Integer.toHexString((array[i] & 0xFF) | 0x100).substring(1, 3));
+	if(!sb.toString().equals(request.getParameter("sign")))
+		return(false);
+
+	return(true);
+}
+{% endhighlight %}
+				</div>
+				<div class="tab-pane" id="payment_verify_python">
+{% highlight python %}
+def verifyNotification(self, secretKey, remoteAddress, v1, v2, v3, amount, currency, id, sign):
+	m_AllowedIPs = ["94.103.26.178", "94.103.26.181"]
+	if(not remoteAddress in whiteList):
+		return(False)
+
+	md5Hash = md5.new(v1 + v2 + v3 + amount + currency + id + secretKey).digest()
+	if(md5Hash.lower() != sign.lower()):
+		return(False)
+
+	return(True)
+{% endhighlight %}
+				</div>
+				<div class="tab-pane" id="payment_verify_ruby">
+{% highlight ruby %}
+def verifyNotification(secretKey, remoteAddress, v1, v2, v3, amount, currency, id, sign)
+	whiteList = Array.new("94.103.26.178", "94.103.26.181");
+	if(whiteList.include?(remoteAddress) == false)
+		return(false);
+	end
+
+	md5Hash = Digest::MD5.hexdigest(v1 + v2 + v3 + amount + currency + id + secretKey);
+	if(md5Hash.downcase != sign.downcase)
+		return(false);
+	end
+
+	return(true);
+{% endhighlight %}
+				</div>
+				<div class="tab-pane" id="payment_verify_aspnet">
+{% highlight csharp %}
+bool verifyNotification(string secretKey, string remoteAddress, string v1, string v2, string v3, string amount, string currency, string id, string sign)
+{
+	List<string> whiteList = new List<string>() {"94.103.26.178", "94.103.26.181"};
+	if(whiteList.Contains(remoteAddress) == false)
+		return(false);
+
+	MD5 md5 = MD5.Create();
+	byte[] pResult = md5.ComputeHash(Encoding.UTF8.GetBytes(v1 + v2 + v3 + amount + currency + id + secretKey));
+	StringBuilder oStringBuilder = new StringBuilder();
+	for(int i=0; i<pResult.Length; i++)
+		oStringBuilder.Append(pResult[i].ToString("x2"));
+	if(sign.ToLower().CompareTo(oStringBuilder.ToString()) != 0)
+		return(false);
+
+	return(true);
+}
+{% endhighlight %}
+				</div>
+				<div class="tab-pane" id="payment_verify_asp">
+{% highlight aspx-vb %}
+<%
+Function verifyNotification(secretKey, remoteAddress, v1, v2, v3, amount, currency, id, sign)
+	whiteList = {"94.103.26.178", "94.103.26.181"}
+	bRemoteAddressAllowed = False
+	For Each allowedIP In whiteList
+		If(remoteAddress = allowedIP) Then
+			bRemoteAddressAllowed = True
+			Exit For
+		End If
+	Next
+	If(bRemoteAddressAllowed = False) Then
+		verifyNotification = False
+	Else
+		md5Hash = MD5(v1 + v2 + v3 + amount + currency + id + secretKey)
+		If(md5Hash <> sign) Then
+			verifyNotification = False
+		Else
+			verifyNotification = True
+		End If
+	End If
+End Function
+%>
+{% endhighlight %}
+				</div>
+				<div class="tab-pane" id="payment_verify_cpp">
+{% highlight cpp %}
+bool verifyNotification(string secretKey, string remoteAddress, string v1, string v2, string v3, string amount, string currency, string id, string sign)
+{
+	string * whiteList = {"94.103.26.178", "94.103.26.181"};
+	for(int i=0; i<2; i++)
+	{
+		if(remoteAddress.compare(whiteList[i]) == 0)
+			break;
+	}
+	if(i >= 2)
+		return(false);
+
+	unsigned char pResult[MD5_DIGEST_LENGTH];
+	string md5Hash;
+	string str = v1 + v2 + v3 + amount + currency + id + secretKey;
+	MD5((const unsigned char *) str.c_str(), str.length(), pResult);
+	for(int i=0; i<MD5_DIGEST_LENGTH; i++)
+	{
+		char pBuf[8];
+		sprintf(pBuf, "%02X", pResult[i]);
+		md5Hash += pBuf;
+	}
+	if(md5Hash.compare(sign) != 0)
+		return(false);
+
+	return(true);
+}
+{% endhighlight %}
+				</div>
+				<div class="tab-pane" id="payment_verify_c">
+{% highlight c %}
+int verifyNotification(char * secretKey, char * remoteAddress, char * v1, char * v2, char * v3, char * amount, char * currency, char * id, char * sign)
+{
+	char ** whiteList = {"94.103.26.178", "94.103.26.181"};
+	for(int i=0; i<2; i++)
+	{
+		if(strcmp(remoteAddress, whiteList[i]) == 0)
+			break;
+	}
+	if(i >= 2)
+		return(0);
+
+	unsigned char pResult[MD5_DIGEST_LENGTH];
+	char md5Hash[(MD5_DIGEST_LENGTH * 2) + 1];
+	char str[1024];
+	strncpy(str, v1, 1024);
+	strncpy(str, v2, 1024);
+	strncpy(str, v3, 1024);
+	strncat(str, amount, 1024);
+	strncat(str, currency, 1024);
+	strncat(str, id, 1024);
+	strncat(str, secretKey, 1024);
+	MD5((const unsigned char *) str, strlen(str), pResult);
+	md5Hash[0] = NULL;
+	for(int i=0; i<MD5_DIGEST_LENGTH; i++)
+	{
+		char pBuf[8];
+
+		sprintf(pBuf, "%02X", pResult[i]);
+		strncat(md5Hash, pBuf, (MD5_DIGEST_LENGTH * 2) + 1);
+	}
+	if(strcmp(md5Hash, sign) != 0)
+		return(0);
+
+	return(1);
+}
+{% endhighlight %}
+				</div>
+			</div>
+		</div>
+
+		<h2>Processing the Notification</h2>
+		<p>The first step in processing a payment notification is to verify that the specified payment has not already been processed by your server. If the <i>id</i> given in the notification has already been processed by your server you must respond with the response provided the first time your server was notified of this transaction. If the <id>id</i> given in the notification has not already been processed by your server then you may take whatever action your server requires to fully process the payment notification. The following samples demonstrate a possible workflow for processing a payment notification.</p>
+		<div class="tabbable">
+			<ul class="nav nav-tabs">
+				<li class="active"><a href="#payment_process_php" data-toggle="tab">PHP v5.4</a></li>
+				<li><a href="#payment_process_java" data-toggle="tab">Java</a></li>
+				<li><a href="#payment_process_python" data-toggle="tab">Python</a></li>
+				<li><a href="#payment_process_ruby" data-toggle="tab">Ruby</a></li>
+				<li><a href="#payment_process_aspnet" data-toggle="tab">Asp.NET/C#</a></li>
+				<li><a href="#payment_process_asp" data-toggle="tab">ASP/VBS</a></li>
+				<li><a href="#payment_process_cpp" data-toggle="tab">C++</a></li>
+				<li><a href="#payment_process_c" data-toggle="tab">C</a></li>
+			</ul>
+			<div class="tab-content">
+				<div class="tab-pane active" id="payment_process_php">
+{% highlight php %}
+<?php
+function processNotification($dbHost, $dbName, $dbUsername, $dbPassword, $strId, $strAmount, $strV1, $strV2, $strV3)
+{
+	// Connect to the local database.
+	$oConnect = new PDO('mysql:host=' . $dbHost . ';dbname=' . $dbName, $dbUsername, $dbPassword);
+
+	// Look for a previous payment with the same id.
+	$oCommand = $oConnect->prepare("SELECT `id` FROM payments WHERE `invoice` = ?");
+	$oCommand->execute(array($strId));
+	$oRow = $oCommand.fetch();
+
+	if(count($oRow) < 1)
+	{
+		// There is no existing payment, make sure that an invoice does exist.
+		$oCommand = $oConnect->prepare("SELECT COUNT(1) FROM `checkout` WHERE `v1` = ?");
+		$oCommand->execute(array($strV1));
+		$oRow = $oCommand.fetch();
+
+		if(count($oRow) > 0)
+		{
+			// The invoice exists, so process the payment.
+			$oCommand = $oConnect->prepare("INSERT INTO `payments` (`v1`, `v2`, `v3`, `sum`, `invoice`, `payment_date`) VALUES (?, ?, ?, ?, ?, NOW())");
+			$oResult = $oCommand->execute(array($strV1, $strV2, $strV3, $strSum, $strId));
+
+			if($oResult)
+			{
+				// The insert was successful so return success.
+				$iCode = 0;
+				$strDescription = "OK";
+			}
+			else
+			{
+				// The insert failed so return an error.
+				$iCode = 40;
+				$strDescription = "Failed to insert record into local database.";
+			}
+		}
+		else
+		{
+			// No invoice exists so return an error.
+			$iCode = 20;
+			$strDescription = "No invoice found.";
+		}
+	}
+	else
+	{
+		// The payment has already been processed so return success.
+		// A more sophisticated system may need to record the original response code if it is not always success so it can be re-sent here...
+		$iCode = 0;
+		$strDescription = "OK";
+	}
+
+	return([$iCode, $strDescription]);
+}
+?>
+{% endhighlight %}
+				</div>
+				<div class="tab-pane" id="payment_process_java">
+{% highlight java %}
+void processNotification(HttpServletRequest request, String dbHost, String dbName, String dbUsername, String dbPassword)
+{
+	Connection			oConnect;
+	PreparedStatement	oCommand;
+	ResultSet			oResult;
+	Integer				iCode;
+	String				strDescription;
+
+	// Connect to the local database.
+	oConnect = DriverManager.getConnection("jdbc:mysql://" + dbHost + "/" + dbName, dbUsername, dbPassword);
+
+	// Look for a previous payment with the same id.
+	oCommand = oConnect.prepareStatement("SELECT `id` FROM payments WHERE `invoice` = ?");
+	oCommand.setInt(1, Integer.parseInt(request.getParameter("id")));
+	oResult = oCommand.executeQuery();
+
+	if(!oResult.next())
+	{
+		// There is no existing payment, make sure that an invoice does exist.
+		oCommand = oConnect.prepareStatement("SELECT COUNT(1) FROM `checkout` WHERE `v1` = ?");
+		oCommand.setString(1, request.getParameter("v1"));
+		oResult = oCommand.executeQuery();
+
+		if(oResult.next())
+		{
+			// The invoice exists, so process the payment.
+			oCommand = oConnect.prepareStatement("INSERT INTO `payments` (`v1`, `v2`, `v3`, `sum`, `invoice`, `payment_date`) VALUES (?, ?, ?, ?, ?, NOW())");
+			oCommand.setString(1, request.getParameter("v1"));
+			oCommand.setString(1, request.getParameter("v2"));
+			oCommand.setString(1, request.getParameter("v3"));
+			oCommand.setFloat(1, Float.parseFloat(request.getParameter("sum")));
+			oCommand.setInteger(1, Integer.parseInt(request.getParameter("id")));
+			Integer iRows = oCommand.executeUpdate();
+
+			if(iRows > 0)
+			{
+				// The insert was successful so return success.
+				iCode = 0;
+				strDescription = "OK";
+			}
+			else
+			{
+				// The insert failed so return an error.
+				iCode = 40;
+				strDescription = "Failed to insert record into local database.";
+			}
+		}
+		else
+		{
+			// No invoice exists so return an error.
+			iCode = 20;
+			strDescription = "No invoice found.";
+		}
+	}
+	else
+	{
+		// The payment has already been processed so return success.
+		// A more sophisticated system may need to record the original response code if it is not always success so it can be re-sent here...
+		iCode = 0;
+		strDescription = "OK";
+	}
+
+	request.setAttribute("iCode", iCode);
+	request.setAttribute("strDescription", strDescription);
+}
+{% endhighlight %}
+				</div>
+				<div class="tab-pane" id="payment_process_python">
+{% highlight python %}
+def processNotification(self, dbHost, dbName, dbUsername, dbPassword, strId, strAmount, strV1, strV2, strV3):
+	# Connect to the local database.
+	oConnect = MySQLdb.connect(dbHost, dbUsername, dbPassword, dbName)
+	oCursor = oConnect.cursor()
+
+	# Look for a previous payment with the same id.
+	strCommand = "SELECT `id` FROM payments WHERE `invoice` = %s"
+	oCursor.execute(strCommand, (strId,))
+
+	if(oCursor.rowcount <= 0):
+		# There is no existing payment, make sure that an invoice does exist.
+		strCommand = "SELECT COUNT(1) FROM `checkout` WHERE `v1` = %s"
+		oCursor.execute(strCommand, (strV1,))
+
+		if(oCursor.rowcount > 0):
+			# The invoice exists, so process the payment.
+			strCommand = "INSERT INTO `payments` (`v1`, `v2`, `v3`, `sum`, `invoice`, `payment_date`) VALUES (%s, %s, %s, %s, %s, NOW())"
+			oCursor.execute(strCommand, (strV1, strV2, strV3, strSum, strId,))
+
+			if(oCursor.rowcount == 1):
+				# The insert was successful so return success.
+				iCode = 0
+				strDescription = "OK"
+			else:
+				# The insert failed so return an error.
+				iCode = 40
+				strDescription = "Failed to insert record into local database."
+		else:
+			# No invoice exists so return an error.
+			iCode = 20
+			strDescription = "No invoice found."
+	else:
+		# The payment has already been processed so return success.
+		# A more sophisticated system may need to record the original response code if it is not always success so it can be re-sent here...
+		iCode = 0
+		strDescription = "OK"
+		oRow = oCursor.fetchone()
+
+	# Close the local database connection.
+	oConnect.commit()
+	oCursor.close()
+	oConnect.close()
+	return(iCode, strDescription)
+{% endhighlight %}
+				</div>
+				<div class="tab-pane" id="payment_process_ruby">
+{% highlight ruby %}
+def processNotification(dbHost, dbName, dbUsername, dbPassword, strId, strAmount, strV1, strV2, strV3, strDescription)
+	# Connect to the local database.
+	oConnect = Mysql::new(dbHost, dbUsername, dbPassword, dbName);
+
+	# Look for a previous payment with the same id.
+	strCommand = "SELECT `id` FROM payments WHERE `invoice` = ?";
+	oCommand = oConnect.prepare(strCommand);
+	oResult = oCommand.execute(strId);
+	oRow = oResult.fetch();
+
+	if(!oRow || oRow[0] == 0)
+		# There is no existing payment, make sure that an invoice does exist.
+		strCommand = "SELECT COUNT(1) FROM `checkout` WHERE `v1` = ?";
+		oCommand = oConnect.prepare(strCommand);
+		oResult = oCommand.execute(strV1);
+		oRow = oResult.fetch();
+
+		if(oRow && oRow > 0)
+			# The invoice exists, so process the payment.
+			strCommand = "INSERT INTO `payments` (`v1`, `v2`, `v3`, `sum`, `invoice`, `payment_date`) VALUES (?, ?, ?, ?, ?, NOW())";
+			oCommand = oConnect.prepare(strCommand);
+			oResult = oCommand.execute(strV1, strV2, strV3, strSum, strId);
+
+			if(oResult.affected_rows() == 1)
+				# The insert was successful so return success.
+				iCode = 0;
+				strDescription.replace("OK");
+			else
+				# The insert failed so return an error.
+				iCode = 40;
+				strDescription.replace("Failed to insert record into local database.");
+			end
+		else
+			# No invoice exists so return an error.
+			iCode = 20;
+			strDescription.replace("No invoice found.");
+		end
+	else
+		# The payment has already been processed so return success.
+		# A more sophisticated system may need to record the original response code if it is not always success so it can be re-sent here...
+		iCode = 0;
+		strDescription.replace("OK");
+	end
+
+	# Close the local database connection.
+	oConnect.close();
+	return(iCode);
+end
+{% endhighlight %}
+				</div>
+				<div class="tab-pane" id="payment_process_aspnet">
+{% highlight csharp %}
+private void processNotification(string dbHost, string dbName, string dbUsername, string dbPassword, string strId, string strAmount, string strV1, string strV2, string strV3, ref ResultCode iCode, ref string strDescription)
+{
+	MySqlCommand			oCommand;
+	UInt32				iId;
+
+	// Connect to the local database.
+	string strConnectionString = "server=" + dbHost + ";userid=" + dbUsername + ";password=" + dbPassword + ";database=" + dbName;
+	MySqlConnection oConnect = new MySqlConnection(strConnectionString);
+	oConnect.Open();
+
+	// Look for a previous payment with the same id.
+	oCommand = new MySqlCommand("SELECT `id` FROM payments WHERE `invoice` = @Id", oConnect);
+	oCommand.Prepare();
+	oCommand.Parameters.AddWithValue("@Id", strId);
+	iId = Convert.ToUInt32(oCommand.ExecuteScalar());
+
+	if(iId == 0)
+	{
+		// There is no existing payment, make sure that an invoice does exist.
+		oCommand = new MySqlCommand("SELECT COUNT(1) FROM `checkout` WHERE `v1` = @V1", oConnect);
+		oCommand.Prepare();
+		oCommand.Parameters.AddWithValue("@V1", strV1);
+		if(Convert.ToUInt32(oCommand.ExecuteScalar() > 0);
+		{
+			// The invoice exists, so process the payment.
+			oCommand = new MySqlCommand("INSERT INTO `payments` (`v1`, `v2`, `v3`, `sum`, `invoice`, `payment_date`) VALUES (@V1, @V2, @V3, @Sum, @Id, NOW())", oConnect);
+			oCommand.Prepare();
+			oCommand.Parameters.AddWithValue("@V1", strV1);
+			oCommand.Parameters.AddWithValue("@V2", strV2);
+			oCommand.Parameters.AddWithValue("@V3", strV3);
+			oCommand.Parameters.AddWithValue("@Sum", strSum);
+			oCommand.Parameters.AddWithValue("@Id", strId);
+
+			if(oCommand.ExecuteNonQuery() == 1)
+			{
+				// The insert was successful so return success.
+				iCode = 0;
+				strDescription = "OK";
+			}
+			else
+			{
+				// The insert failed so return an error.
+				iCode = 40;
+				strDescription = "Failed to insert record into local database.";
+			}
+		}
+		else
+		{
+			// No invoice exists so return an error.
+			iCode = 20;
+			strDescription = "No invoice found.";
+		}
+	}
+	else
+	{
+		// The payment has already been processed so return success.
+		// A more sophisticated system may need to record the original response code if it is not always success so it can be re-sent here...
+		iCode = 0;
+		strDescription = "OK";
+	}
+
+	// Close the local database connection.
+	oConnect.Close();
+}
+{% endhighlight %}
+				</div>
+				<div class="tab-pane" id="payment_process_asp">
+{% highlight aspx-vb %}
+<%
+Function processNotification(dbHost, dbName, dbUsername, dbPassword, strId, strAmount, strV1, strV2, strV3, strDescription)
+	Dim pConnect
+	Dim strSQL
+	Dim oCommand
+	Dim oResult
+	Dim iCode
+
+	' Connect to the local database.
+	Set pConnect = Server.CreateObject("ADODB.Connection")
+	pConnect.Open("Driver={MySQL ODBC 5.2w Driver};Server=" & dbHost & ";Database=" & dbName & ";User=" & dbUsername & ";Password=" & dbPassword & ";Option=3;")
+
+	' Look for a previous payment with the same id.
+	strSQL = "SELECT `id` FROM payments WHERE `invoice` = ?"
+	Set oCommand = Server.CreateObject("ADODB.Command")
+	oCommand.ActiveConnection = pConnect
+	oCommand.CommandType = 1 'adCmdText
+	oCommand.CommandText = strSQL
+	oCommand.Parameters.Append(oCommand.CreateParameter(, 200, 1, Len(strId), strId)) ' adVarChar, adParamInput
+	Set oResult = oCommand.Execute()
+
+	If (oResult.EOF) Then
+		' There is no existing payment, make sure that an invoice does exist.
+		strSQL = "SELECT COUNT(1) FROM `checkout` WHERE `v1` = ?"
+		Set oCommand = Server.CreateObject("ADODB.Command")
+		oCommand.ActiveConnection = pConnect
+		oCommand.CommandType = 1 'adCmdText
+		oCommand.CommandText = strSQL
+		oCommand.Parameters.Append(oCommand.CreateParameter(, 200, 1, Len(strV1), strV1)) ' adVarChar, adParamInput
+		Set oResult = oCommand.Execute()
+		If ((Not oResult.EOF) And (CLng(oResult.Fields[0]) > 0))
+			' The invoice exists, so process the payment.
+			strSQL = "INSERT INTO `payments` (`v1`, `v2`, `v3`, `sum`, `invoice`, `payment_date`) VALUES (?, ?, ?, ?, ?, NOW())"
+			Set oCommand = Server.CreateObject("ADODB.Command")
+			oCommand.ActiveConnection = pConnect
+			oCommand.CommandType = 1 'adCmdText
+			oCommand.CommandText = strSQL
+			oCommand.Parameters.Append(oCommand.CreateParameter(, 200, 1, Len(strV1), strV1)) ' adVarChar, adParamInput
+			oCommand.Parameters.Append(oCommand.CreateParameter(, 200, 1, Len(strV2), strV2)) ' adVarChar, adParamInput
+			oCommand.Parameters.Append(oCommand.CreateParameter(, 200, 1, Len(strV3), strV3)) ' adVarChar, adParamInput
+			oCommand.Parameters.Append(oCommand.CreateParameter(, 200, 1, Len(strSum), strSum)) ' adVarChar, adParamInput
+			oCommand.Parameters.Append(oCommand.CreateParameter(, 200, 1, Len(strId), strId)) ' adVarChar, adParamInput
+			Set oResult = oCommand.Execute()
+
+			If (oResult <> 0) Then
+				' The insert was successful so return success.
+				iCode = 0
+				strDescription = "OK"
+			Else
+				' The insert failed so return an error.
+				iCode = 40
+				strDescription = "Failed to insert record into local database."
+			End If
+		Else
+			' No invoice exists so return an error.
+			iCode = 20
+			strDescription = "No invoice found."
+		End If
+	Else
+		' The payment has already been processed so return success.
+		' A more sophisticated system may need to record the original response code if it is not always success so it can be re-sent here...
+		iCode = 0
+		strDescription = "OK"
+	End If
+
+	' Close the local database connection.
+	pConnect.Close()
+
+	processNotification = iCode
+End Function
+%>
+{% endhighlight %}
+				</div>
+				<div class="tab-pane" id="payment_process_cpp">
+{% highlight cpp %}
+void processNotification(const string dbHost, const string dbName, const string dbUsername, const string dbPassword, const string strId, const string strAmount, const string strV1, const string strV2, const string strV3, int & iCode, string & strDescription)
+{
+	string				strSQL;
+	MYSQL_RES *			pResult;
+	my_ulonglong			iCount;
+	MYSQL_ROW				pRow;
+
+	// Connect to the local database.
+	MYSQL * pConnect = mysql_init(NULL);
+	pConnect = mysql_real_connect(pConnect, dbHost.c_str(), dbUsername.c_str(), dbPassword.c_str(), dbName.c_str(), 0, NULL, 0);
+
+	// Look for a previous payment with the same id.
+	strSQL = string("SELECT `id` FROM payments WHERE `invoice` = ") + strId;
+	mysql_query(pConnect, strSQL.c_str());
+	pResult = mysql_store_result(pConnect);
+	iCount = mysql_num_rows(pResult);
+
+	if(iCount == 0)
+	{
+		// There is no existing payment, make sure that an invoice does exist.
+		strSQL = string("SELECT COUNT(1) FROM `checkout` WHERE `v1` = '") + strV1 + string("'");
+		mysql_query(pConnect, strSQL.c_str());
+		pResult = mysql_store_result(pConnect);
+		pRow = mysql_fetch_row(pResult);
+		if(atoi(pRow[0]) > 0)
+		{
+			// The invoice exists, so process the payment.
+			strSQL = string("INSERT INTO `payments` (`v1`, `v2`, `v3`, `sum`, `invoice`, `payment_date`) VALUES (") + strV1 + string(", ") + strV2 + string(", ") + strV3 + string(", ") + strSum + string(", ") + strId + string(", NOW())");
+
+			if(mysql_query(pConnect, strSQL.c_str()) == 0)
+			{
+				// The insert was successful so return success.
+				iCode = 0;
+				strDescription = "OK";
+			}
+			else
+			{
+				// The insert failed so return an error.
+				iCode = 40;
+				strDescription = "Failed to insert record into local database.";
+			}
+		}
+		else
+		{
+			// No invoice exists so return an error.
+			iCode = 20;
+			strDescription = "No invoice found.";
+		}
+	}
+	else
+	{
+		// The payment has already been processed so return success.
+		// A more sophisticated system may need to record the original response code if it is not always success so it can be re-sent here...
+		pRow = mysql_fetch_row(pResult);
+		iCode = 0;
+		strDescription = "OK";
+	}
+
+	// Close the local database connection.
+	mysql_free_result(pResult);
+	mysql_close(pConnect);
+}
+{% endhighlight %}
+				</div>
+				<div class="tab-pane" id="payment_process_c">
+{% highlight c %}
+int processNotification(const char * dbHost, const char * dbName, const char * dbUsername, const char * dbPassword, const char * strId, const char * strAmount, const char * strV1, const char * strV2, const char * strV3, char * strDescription)
+{
+	char				strSQL[512];
+	MYSQL_RES *			pResult;
+	my_ulonglong			iCount;
+	int				iCode;
+	MYSQL_ROW				pRow;
+
+	/* Connect to the local database. */
+	MYSQL * pConnect = mysql_init(NULL);
+	pConnect = mysql_real_connect(pConnect, dbHost.c_str(), dbUsername.c_str(), dbPassword.c_str(), dbName.c_str(), 0, NULL, 0);
+
+	/* Look for a previous payment with the same id. */
+	sprintf(strSQL, "SELECT `id` FROM payments WHERE `invoice` = '%s'", strId);
+	mysql_query(pConnect, strSQL);
+	pResult = mysql_store_result(pConnect);
+	iCount = mysql_num_rows(pResult);
+
+	if(iCount == 0)
+	{
+		/* There is no existing payment, make sure that an invoice does exist. */
+		sprintf(strSQL, "SELECT COUNT(1) FROM `checkout` WHERE `v1` = '%s'", strV1);
+		mysql_query(pConnect, strSQL);
+		pResult = mysql_store_result(pConnect);
+		pRow = mysql_fetch_row(pResult);
+		if(atoi(pRow[0]) > 0)
+		{
+			/* The invoice exists, so process the payment. */
+			sprintf(strSQL, "INSERT INTO `payments` (`v1`, `v2`, `v3`, `sum`, `invoice`, `payment_date`) VALUES ('%s', '%s', '%s', '%s', '%s', NOW())", strV1, strV2, strV3, strSum, strId);
+
+			if(mysql_query(pConnect, strSQL) == 0)
+			{
+				/* The insert was successful so return success. */
+				iCode = 0;
+				sprintf(strDescription, "OK");
+			}
+			else
+			{
+				/* The insert failed so return an error. */
+				iCode = 40;
+				sprintf(strDescription, "Failed to insert record into local database.");
+			}
+		}
+		else
+		{
+				/* No invoice exists so return an error. */
+				iCode = 20;
+				sprintf(strDescription, "No invoice found.");
+		}
+	}
+	else
+	{
+		/* The payment has already been processed so return success.
+		   A more sophisticated system may need to record the original response code if it is not always success so it can be re-sent here... */
+		pRow = mysql_fetch_row(pResult);
+		iCode = 0;
+		sprintf(strDescription, "OK");
+	}
+
+	/* Close the local database connection. */
+	mysql_free_result(pResult);
+	mysql_close(pConnect);
+
+	return(iCode);
+}
+{% endhighlight %}
+				</div>
+			</div>
+		</div>
+
+		<h2>Response</h2>
+		<p>Once you have finished processing a notification you should generate a response. The response includes a result code from the following list, description and a set of fields copied from the source notification. The response should be a well formed XML document using the following schema and must be provided within 10 seconds of receipt of the notification. The following samples demonstrate the generation of well formed responses.</p>
+		<div class="tabbable">
+			<ul class="nav nav-tabs">
+				<li class="active"><a href="#payment_response_php" data-toggle="tab">PHP v5.4</a></li>
+				<li><a href="#payment_response_java" data-toggle="tab">Java</a></li>
+				<li><a href="#payment_response_python" data-toggle="tab">Python</a></li>
+				<li><a href="#payment_response_ruby" data-toggle="tab">Ruby</a></li>
+				<li><a href="#payment_response_aspnet" data-toggle="tab">Asp.NET/C#</a></li>
+				<li><a href="#payment_response_asp" data-toggle="tab">ASP/VBS</a></li>
+				<li><a href="#payment_response_cpp" data-toggle="tab">C++</a></li>
+				<li><a href="#payment_response_c" data-toggle="tab">C</a></li>
+			</ul>
+			<div class="tab-content">
+				<div class="tab-pane active" id="payment_response_php">
+{% highlight php %}
+<?php
+function generateResponse($iCode, $strDescription, $strId, $strOrder, $strAmount, $strCurrency, $strDatetime, $strSign)
+{
+	$responseXML = new SimpleXMLElement('<response></response>');
+
+	$responseXML->addChild('result', $iCode);
+	$responseXML->addChild('description', $strDescription);
+
+	$fieldsXML = $responseXML->addChild('fields');
+	$fieldsXML->addChild('id', $strId);
+	$fieldsXML->addChild('order', $strOrder);
+	$fieldsXML->addChild('amount', $strAmount);
+	$fieldsXML->addChild('currency', $strCurrency);
+	$fieldsXML->addChild('datetime', $strDatetime);
+	$fieldsXML->addChild('sign', $strSign);
+
+	header('Content-Type: text/xml; charset=utf8');
+	echo $responseXML->asXML();
+}
+?>
+{% endhighlight %}
+				</div>
+				<div class="tab-pane" id="payment_response_java">
+<h3>response.java</h3>
+{% highlight java %}
+void generateResponse(HttpServletRequest request, HttpServletResponse response)
+{
+	request.getRequestDispatcher("response.jsp").forward(request, response);
+}
+{% endhighlight %}
+
+<h3>response.jsp</h3>
+{% highlight jsp %}
+<?xml version="1.0" encoding="UTF-8"?>
+<%@page contentType="text/xml" pageEncoding="UTF-8"%>
+<response>
+	<result><%= request.getAttribute("iCode")%></result>
+	<description><%= request.getAttribute("strDescription")%></description>
+	<fields>
+		<id><%= request.getParameter("id")%></id>
+		<order><%= request.getParameter("order")%></order>
+		<amount><%= request.getParameter("amount")%></amount>
+		<currency><%= request.getParameter("currency")%></currency>
+		<datetime><%= request.getParameter("datetime")%></datetime>
+		<sign><%= request.getParameter("sign")%></sign>
+	</fields>     
+</response>
+{% endhighlight %}
+				</div>
+				<div class="tab-pane" id="payment_response_python">
+{% highlight python %}
+def generateResponse(self, responseCode, responseMsg, strId, strOrder, strAmount, strCurrency, strDatetime, strSign):
+	responseXML = etree.Element('response')
+
+	child = etree.SubElement(responseXML, 'result')
+	child.text = responseCode
+	child = etree.SubElement(responseXML, 'description')
+	child.text = responseMsg
+
+	fieldsXML = etree.SubElement(responseXML, 'fields')
+	child = etree.SubElement(fieldsXML, 'id')
+	child.text = strId
+	child = etree.SubElement(fieldsXML, 'order')
+	child.text = strOrder
+	child = etree.SubElement(fieldsXML, 'amount')
+	child.text = strAmount
+	child = etree.SubElement(fieldsXML, 'currency')
+	child.text = strCurrency
+	child = etree.SubElement(fieldsXML, 'datetime')
+	child.text = strDatetime
+	child = etree.SubElement(fieldsXML, 'sign')
+	child.text = strSign
+
+	print 'Content-Type: text/xml charset=utf-8\r\n\r\n'
+	print '<?xml version="1.0" encoding="UTF-8"?>\n', etree.tostring(responseXML, pretty_print=True)
+{% endhighlight %}
+				</div>
+				<div class="tab-pane" id="payment_response_ruby">
+{% highlight ruby %}
+def generateResponse(responseCode, responseMsg, strId, strOrder, strAmount, strCurrency, strDatetime, strSign)
+	responseXML = '<?xml version="1.0" encoding="UTF-8"?>';
+	responseXML += '<response>';
+	responseXML += '<result>' + responseCode.to_s + '</result>';
+	responseXML += '<description>' + responseMsg+ '</description>';
+	responseXML += '<fields>';
+	responseXML += '<id>' + strId + "</id>";
+	responseXML += '<order>' + strOrder + "</order>";
+	responseXML += '<amount>' + strAmount + "</amount>";
+	responseXML += '<currency>' + strCurrency + "</currency>";
+	responseXML += '<datetime>' + strDatetime + "</datetime>";
+	responseXML += '<sign>' + strSign + "</sign>";
+	responseXML += '</fields>';
+	responseXML += '</response>';
+
+	print 'Content-Type: text/xml; charset=utf-8\r\n\r\n';
+	print responseXML;
+end
+{% endhighlight %}
+				</div>
+				<div class="tab-pane" id="payment_response_aspnet">
+{% highlight csharp %}
+void generateResponse(HttpResponse response, int responseCode, string responseMsg, string strId, string strOrder, string strAmount, string strCurrency, string strDatetime, string strSign)
+{
+	XElement responseXML = new XElement("response");
+	responseXML.Add(new XElement("result", responseCode));
+	responseXML.Add(new XElement("description", responseMsg));
+
+	XElement fieldsXML = new XElement("fields");
+	fieldsXML.Add(new XElement("id", strId));
+	fieldsXML.Add(new XElement("order", strOrder));
+	fieldsXML.Add(new XElement("amount", strAmount));
+	fieldsXML.Add(new XElement("currency", strCurrency));
+	fieldsXML.Add(new XElement("datetime", strDatetime));
+	fieldsXML.Add(new XElement("sign", strSign));
+	responseXML.Add(fieldsXML);
+
+	response.Headers.Set("Content-Type", "text/xml; charset=UTF-8");
+	response.Write("<?xml version=\\"1.0\\" encoding=\\"UTF-8\\"?>");
+	response.Write(responseXML);
+}
+{% endhighlight %}
+				</div>
+				<div class="tab-pane" id="payment_response_asp">
+{% highlight aspx-vb %}
+<%
+Sub generateResponse(responseCode, responseMsg, strId, strOrder, strAmount, strCurrency, strDatetime, strSign)
+	Response.Write("Content-Type: text/xml charset=utf-8" & vbCrLf & vbCrLf)
+
+	Response.Write("<?xml version=""1.0""?>")
+	Response.Write("<response>")
+
+	Response.Write("<result>" & CStr(responseCode) & "</result>")
+	Response.Write("<comment>" & responseMsg & "</comment>")
+
+	Response.Write("<fields>")
+	Response.Write("<id>" & strId & "</id>")
+	Response.Write("<order>" & strOrder & "</order>")
+	Response.Write("<amount>" & strAmount & "</amount>")
+	Response.Write("<currency>" & strCurrency & "</currency>")
+	Response.Write("<datetime>" & strDatetime & "</datetime>")
+	Response.Write("<sign>" & strSign & "</sign>")
+	Response.Write("</fields>")
+
+	Response.Write("</response>")
+End Sub
+%>
+{% endhighlight %}
+				</div>
+				<div class="tab-pane" id="payment_response_cpp">
+{% highlight cpp %}
+void generateResponse(int responseCode, string responseMsg, string strId, string strOrder, string strAmount, string strCurrency, string strDatetime, string strSign)
+{
+	string responseXML = "<?xml version=\\"1.0\\" encoding=\\"UTF-8\\"?>";
+	responseXML += "<response>";
+
+	responseXML += string("<result>") + static_cast<ostringstream*>(&(ostringstream() << responseCode))->str() + string("</result>");
+	responseXML += string("<description>") + responseMsg + string("</description>");
+
+	responseXML += "<fields>";
+	responseXML += string("<id>") + strId + string("</id>");
+	responseXML += string("<order>") + strOrder + string("</order>");
+	responseXML += string("<amount>") + strAmount + string("</amount>");
+	responseXML += string("<currency>") + strCurrency + string("</currency>");
+	responseXML += string("<datetime>") + strDatetime + string("</datetime>");
+	responseXML += string("<sign>") + strSign + string("</sign>");
+	responseXML += "</fields>";
+
+	responseXML += "</response>";
+
+	cout << "Content-Type: text/xml; charset=utf-8\r\n\r\n";
+	cout << responseXML;
+}
+{% endhighlight %}
+				</div>
+				<div class="tab-pane" id="payment_response_c">
+{% highlight c %}
+void generateResponse(int responseCode, const char * responseMsg, const char * strId, const char * strOrder, const char * strAmount, const char * strCurrency, const char * strDatetime, const char * strSign)
+{
+	printf("Content-Type: text/xml; charset=utf-8\r\n\r\n");
+
+	printf("<?xml version=\\"1.0\\" encoding=\\"UTF-8\\"?>");
+	printf("<response>");
+
+	printf("<result>%d</result>", responseCode);
+	printf("<comment>%s</comment>", responseMsg);
+
+	printf("<fields>");
+	printf("<id>%s</id>", strId);
+	printf("<order>%s</order>", strOrder);
+	printf("<amount>%s</amount>", strAmount);
+	printf("<currency>%s</currency>", strCurrency);
+	printf("<datetime>%s</datetime>", strDatetime);
+	printf("<sign>%s</sign>", strSign);
+	printf("</fields>");
+
+	printf("</response>");
+}
+{% endhighlight %}
+				</div>
+			</div>
+		</div>
+
+		<h3>Response Schema</h3>
+{% highlight xml %}
+<?xml version="1.0" encoding="UTF-8"?>
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified" attributeFormDefault="unqualified">
+	<xsd:element name="response">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:annotation>
+					<xsd:documentation>
+						Outer container for the response.
+					</xsd:documentation>
+				</xsd:annotation>
+				<xsd:element name="result" type="xsd:unsignedInt">
+					<xsd:annotation>
+						<xsd:documentation>
+							A result code indicating how the server handled the notification.
+						</xsd:documentation>
+					</xsd:annotation>
+				</xsd:element>
+				<xsd:element name="description" type="xsd:string">
+					<xsd:annotation>
+						<xsd:documentation>
+							A detailed description of how the server handled the notification.
+						</xsd:documentation>
+					</xsd:annotation>
+				</xsd:element>
+				<xsd:element name="fields">
+					<xsd:complexType>
+						<xsd:sequence>
+							<xsd:annotation>
+								<xsd:documentation>
+									A container for the original notification fields.
+								</xsd:documentation>
+							</xsd:annotation>
+							<xsd:element name="id" type="xsd:unsignedInt">
+								<xsd:annotation>
+									<xsd:documentation>
+										The id field from the original notification.
+									</xsd:documentation>
+								</xsd:annotation>
+							</xsd:element>
+							<xsd:element name="order" type="xsd:string">
+								<xsd:annotation>
+									<xsd:documentation>
+										The order field from the original notification.
+									</xsd:documentation>
+								</xsd:annotation>
+							</xsd:element>
+							<xsd:element name="amount" type="xsd:float">
+								<xsd:annotation>
+									<xsd:documentation>
+										The amount field from the original notification.
+									</xsd:documentation>
+								</xsd:annotation>
+							</xsd:element>
+							<xsd:element name="currency" type="xsd:string">
+								<xsd:annotation>
+									<xsd:documentation>
+										The currency field from the original notification.
+									</xsd:documentation>
+								</xsd:annotation>
+							</xsd:element>
+							<xsd:element name="datetime" type="xsd:dateTime">
+								<xsd:annotation>
+									<xsd:documentation>
+										The datetime field from the original notification.
+									</xsd:documentation>
+								</xsd:annotation>
+							</xsd:element>
+							<xsd:element name="sign" type="xsd:string">
+								<xsd:annotation>
+									<xsd:documentation>
+										The sign field from the original notification.
+									</xsd:documentation>
+								</xsd:annotation>
+							</xsd:element>
+						</xsd:sequence>
+					</xsd:complexType>
+				</xsd:element>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+</xsd:schema>
+{% endhighlight %}
+
+		<h3>Example Responses</h3>
+		<p>A response indicating a successfully processed transaction:</p>
+{% highlight xml %}
+<?xml version="1.0" encoding="UTF-8"?>
+<response>
+  <result>0</result>
+  <description>Success</description>
+  <fields>
+    <id>7555545</id>
+    <order>ORD12345</order>
+    <amount>123.45</amount>
+    <currency>USD</currency>
+    <datetime>20110718225603</datetime>
+    <sign>d3ecd4cdbabe7cd2db0965887ca0e0f9</sign>
+  </fields>
+</response>
+{% endhighlight %}
+
+		<p>A response indicating a failure:</p>
+{% highlight xml %}
+<?xml version="1.0" encoding="UTF-8"?>
+<response>
+  <result>30</result>
+  <description>Temporary error</description>
+  <fields>
+    <id>7555545</id>
+    <order>ORD12345</order>
+    <amount>123.45</amount>
+    <currency>USD</currency>
+    <datetime>20110718225603</datetime>
+    <sign>d3ecd4cdbabe7cd2db0965887ca0e0f9</sign>
+  </fields>
+</response>
+{% endhighlight %}
+
+		<h2>Result Codes</h2>
+		<table class="table table-striped">
+			<colgroup>
+				<col style="width:20%" />
+				<col style="width:80%" />
+			</colgroup>
+			<thead>
+				<tr>
+					<th>Code</th>
+					<th>Description</th>
+				</tr>
+			</thead>
+			<tbody>
+				<tr>
+					<td>0</td>
+					<td>Success</td>
+				</tr>
+				<tr>
+					<td>10</td>
+					<td>No action taken because this notification is a duplicate of a previous notification.</td>
+				</tr>
+				<tr>
+					<td>20</td>
+					<td>The specified order was not found.</td>
+				</tr>
+				<tr>
+					<td>30</td>
+					<td>Temporary error (the notification must be repeated).</td>
+				</tr>
+				<tr>
+					<td>40</td>
+					<td>Fatal error (the notification should not be repeated).</td>
+				</tr>
+			</tbody>
+		</table>
+
+		<h1>Invoicing</h1>
+		<div class="tabbable">
+			<ul class="nav nav-tabs">
+				<li class="active"><a href="#invoicing_verify_php" data-toggle="tab">PHP v5.4</a></li>
+				<li><a href="#invoicing_verify_java" data-toggle="tab">Java</a></li>
+				<li><a href="#invoicing_verify_python" data-toggle="tab">Python</a></li>
+				<li><a href="#invoicing_verify_ruby" data-toggle="tab">Ruby</a></li>
+				<li><a href="#invoicing_verify_aspnet" data-toggle="tab">Asp.NET/C#</a></li>
+				<li><a href="#invoicing_verify_asp" data-toggle="tab">ASP/VBS</a></li>
+				<li><a href="#invoicing_verify_cpp" data-toggle="tab">C++</a></li>
+				<li><a href="#invoicing_verify_c" data-toggle="tab">C</a></li>
+			</ul>
+			<div class="tab-content">
+				<div class="tab-pane active" id="invoicing_verify_php">
+{% highlight php %}
+<?php
+function createInvoice($dbHost, $dbName, $dbUsername, $dbPassword, $strProject, $fAmount)
+{
+	// Connect to the local database.
+	$oConnect = new PDO('mysql:host=' . $dbHost . ';dbname=' . $dbName, $dbUsername, $dbPassword);
+
+	// Close the local database connection.
+	$oCommand = $oConnect->prepare("INSERT INTO `checkout` ('amount') VALUES (?)");
+	$oCommand->execute(array($fAmount));
+
+	// Retrieve the invoice id.
+	$strV1 = $oConnect->lastInsertId();
+
+	// Return a suitable URI.
+	return("https://secure.xsolla.com/paystation/?project=${strProject}&v1=${strV1}&out=${fAmount}");
+}
+?>
+{% endhighlight %}
+				</div>
+				<div class="tab-pane" id="invoicing_verify_java">
+{% highlight java %}
+String createInvoice(String dbHost, String dbUsername, String dbPassword, String strProject, float fAmount)
+{
+	// Connect to the local database.
+	Connection oConnect = DriverManager.getConnection(dbHost, dbUsername, dbPassword);
+
+	// Create the invoice.
+	PreparedStatement oCommand = oConnect.prepareStatement("INSERT INTO `checkout` ('amount') VALUES (?)", Statement.RETURN_GENERATED_KEYS);
+	oCommand.setFloat(1, fAmount);
+
+	// Retrieve the invoice id.
+	String strV1 = Integer.toString(oCommand.executeUpdate());
+
+	// Close the local database connection.
+	oCommand.close();
+	oConnect.close();
+
+	// Return a suitable URI.
+	return(String("https://secure.xsolla.com/paystation/?project=") + strProject + String("&v1=") + strV1 + String("&out=") + fAmount.toString());
+}
+{% endhighlight %}
+				</div>
+				<div class="tab-pane" id="invoicing_verify_python">
+{% highlight python %}
+def createInvoice(self, dbHost, dbName, dbUsername, dbPassword, strProject, fAmount):
+	# Connect to the local database.
+	oConnect = MySQLdb.connect(dbHost, dbUsername, dbPassword, dbName)
+
+	# Create the invoice.
+	strCommand = "INSERT INTO `checkout` ('amount') VALUES (%s)";
+	oCursor = oConnect.cursor()
+	oCursor.execute(strCommand, (fAmount,))
+
+	# Retrieve the invoice id.
+	strCommand = "SELECT LAST_INSERT_ID()"
+	oCursor.execute(strCommand)
+	oRow = oCursor.fetchone()
+	strV1 = str(oRow[0])
+
+	# Close the local database connection.
+	oConnect.commit()
+	oCursor.close()
+	oConnect.close()
+
+	# Return a suitable URI.
+	return("https://secure.xsolla.com/paystation/?project=" + strProject + "&v1=" + strV1 + "&out=" + str(fAmount))
+{% endhighlight %}
+				</div>
+				<div class="tab-pane" id="invoicing_verify_ruby">
+{% highlight ruby %}
+def createInvoice(dbHost, dbName, dbUsername, dbPassword, strProject, fAmount)
+	# Connect to the local database.
+	oConnect = Mysql::new(dbHost, dbUsername, dbPassword, dbName);
+
+	# Create the invoice.
+	strCommand = "INSERT INTO `checkout` ('amount') VALUES (?)";
+	oCommand = oConnect.prepare(strCommand);
+	oResult = oCommand.execute(fAmount);
+
+	# Retrieve the invoice id.
+	strCommand = "SELECT LAST_INSERT_ID()";
+	oCommand = oConnect.prepare(strCommand);
+	oResult = oCommand.execute();
+	oRow = oResult.fetch();
+	strV1 = oRow[0].to_s;
+
+	# Close the local database connection.
+	oConnect.close();
+
+	# Return a suitable URI.
+	return("https://secure.xsolla.com/paystation/?project=" + strProject + "&v1=" + strV1 + "&out=" + fAmount.to_s);
+end
+{% endhighlight %}
+				</div>
+				<div class="tab-pane" id="invoicing_verify_aspnet">
+{% highlight csharp %}
+private string createInvoice(string dbHost, string dbName, string dbUsername, string dbPassword, string strProject, float fAmount)
+{
+	MySqlCommand			oCommand;
+	string				strV1;
+
+	// Connect to the local database.
+	string strConnectionString = "server=" + dbHost + ";userid=" + dbUsername + ";password=" + dbPassword + ";database=" + dbName;
+	MySqlConnection oConnect = new MySqlConnection(strConnectionString);
+	oConnect.Open();
+
+	// Create the invoice.
+	oCommand = new MySqlCommand("INSERT INTO `checkout` ('amount') VALUES (@Amount)", oConnect);
+	oCommand.Prepare();
+	oCommand.Parameters.AddWithValue("@Amount", fAmount);
+	oCommand.ExecuteNonQuery();
+
+	// Retrieve the invoice id.
+	oCommand = new MySqlCommand("SELECT LAST_INSERT_ID()", oConnect);
+	oCommand.Prepare();
+	strV1 = Convert.ToString(oCommand.ExecuteScalar());
+
+	// Close the local database connection.
+	oConnect.Close();
+
+	// Return a suitable URI.
+	return("https://secure.xsolla.com/paystation/?project=" + strProject + "&v1=" + strV1 + "&out=" + fAmount.ToString());
+}
+{% endhighlight %}
+				</div>
+				<div class="tab-pane" id="invoicing_verify_asp">
+{% highlight aspx-vb %}
+<%
+Function createInvoice(dbHost, dbName, dbUsername, dbPassword, strProject, fAmount)
+	Dim pConnect
+	Dim strSQL
+	Dim oCommand
+	Dim strV1
+
+	' Connect to the local database.
+	Set pConnect = Server.CreateObject("ADODB.Connection")
+	pConnect.Open("Driver={MySQL ODBC 5.2w Driver};Server=" & dbHost & ";Database=" & dbName & ";User=" & dbUsername & ";Password=" & dbPassword & ";Option=3;")
+
+	' Create the invoice.
+	strSQL = "INSERT INTO `checkout` ('amount') VALUES (?)"
+	Set oCommand = Server.CreateObject("ADODB.Command")
+	oCommand.ActiveConnection = pConnect
+	oCommand.CommandType = 1 'adCmdText
+	oCommand.CommandText = strSQL
+	oCommand.Parameters.Append(oCommand.CreateParameter(, 200, 1, Len(Str(fAmount)), Str(fAmount))) ' adVarChar, adParamInput
+	Set oResult = oCommand.Execute()
+
+	' Retrieve the invoice id.
+	strSQL = "SELECT LAST_INSERT_ID() FROM `payments`"
+	Set oCommand = New ADODB.Command
+	oCommand.ActiveConnection = pConnect
+	oCommand.CommandType = 1 'adCmdText
+	oCommand.CommandText = strSQL
+	Set oResult = oCommand.Execute()
+	strV1 = CStr(oResult.Fields(0))
+
+	' Close the local database connection.
+	pConnect.Close()
+
+	' Return a suitable URI.
+	createInvoice = "https://secure.xsolla.com/paystation/?project=" + strProject + "&v1=" + strV1 + "&out=" + Str(fAmount)
+End Function
+%>
+{% endhighlight %}
+				</div>
+				<div class="tab-pane" id="invoicing_verify_cpp">
+{% highlight cpp %}
+string createInvoice(const string dbHost, const string dbName, const string dbUsername, const string dbPassword, const string strProject, float fAmount)
+{
+	string				strSQL;
+	MYSQL_RES *			pResult;
+	string				strV1;
+
+	// Connect to the local database.
+	MYSQL * pConnect = mysql_init(NULL);
+	pConnect = mysql_real_connect(pConnect, dbHost.c_str(), dbUsername.c_str(), dbPassword.c_str(), dbName.c_str(), 0, NULL, 0);
+
+	// Create the invoice.
+	strSQL = "INSERT INTO `checkout` ('amount') VALUES (" + fAmount + ")";
+	mysql_query(pConnect, strSQL.c_str());
+
+	// Retrieve the invoice id.
+	strV1 = mysql_insert_id(m_Connect);
+
+	// Close the local database connection.
+	mysql_free_result(pResult);
+	mysql_close(pConnect);
+
+	// Return a suitable URI.
+	return("https://secure.xsolla.com/paystation/?project=" + strProject + "&v1=" + strV1 + "&out=" + fAmount);
+}
+{% endhighlight %}
+				</div>
+				<div class="tab-pane" id="invoicing_verify_c">
+{% highlight c %}
+void createInvoice(const char * dbHost, const char * dbName, const char * dbUsername, const char * dbPassword, const char * strProject, float fAmount, char * strURI)
+{
+	char				strSQL[512];
+	MYSQL_RES *			pResult;
+	char				strV1[512];
+
+	/* Connect to the local database. */
+	MYSQL * pConnect = mysql_init(NULL);
+	pConnect = mysql_real_connect(pConnect, dbHost.c_str(), dbUsername.c_str(), dbPassword.c_str(), dbName.c_str(), 0, NULL, 0);
+
+	/* Create the invoice. */
+	sprintf(strSQL, "INSERT INTO `checkout` ('amount') VALUES (%0f)", fAmount);
+	mysql_query(pConnect, strSQL.c_str());
+
+	/* Retrieve the invoice id. */
+	sprintf(strV1, "%lu", mysql_insert_id(m_Connect));
+
+	/* Close the local database connection. */
+	mysql_free_result(pResult);
+	mysql_close(pConnect);
+
+	// Return a suitable URI.
+	sprintf(strURI, "https://secure.xsolla.com/paystation/?project=%s&v1=%s%out=%0f", strProject, strV1, fAmount);
+}
+{% endhighlight %}
+				</div>
+			</div>
+		</div>
+
+		<h1>Cancellation</h1>
+		<p>If for any reason a Xsolla Cash transaction must be revoked a cancellation notification will be sent to your server. Once you have verified the authenticity of the notification your server must process the notification and provide a response within 10 seconds.</p>
+
+		<h2>Notification Fields</h2>
+		<table class="table table-striped">
+			<colgroup>
+				<col style="width:16%" />
+				<col style="width:11%" />
+				<col style="width:43%" />
+				<col style="width:15%" />
+				<col style="width:15%" />
+			</colgroup>
+			<thead>
+				<tr>
+					<th>Field Name</th>
+					<th>Type</th>
+					<th>Description</th>
+					<th>Required?</th>
+					<th>Example</th>
+				</tr>
+			</thead>
+			<tbody>
+				<tr>
+					<td>command</td>
+					<td>String</td>
+					<td>This field indicates which notification is being sent to your server. For cancellation notifications it will always be "cancel".</td>
+					<td>Yes</td>
+					<td>cancel</td>
+				</tr>
+				<tr>
+					<td>id</td>
+					<td>String</td>
+					<td>This field contains the order ID used in the Xsolla system to identify the payment being canceled.</td>
+					<td>Yes</td>
+					<td>7555545</td>
+				</tr>
+				<tr>
+					<td>md5</td>
+					<td>String</td>
+					<td>This field contains an MD5 hash of a string containing the v1 field, amount field, currency field, id field and your secret key.</td>
+					<td>Yes</td>
+					<td>7c0a367c3f903d75d782f9e031d6623bfafec5e51045d05c</td>
+				</tr>
+			</tbody>
+		</table>
+
+		<h2>Verifying the Notification</h2>
+		<p>Before processing a notification you must first verify its authenticity. This is done by confirming the source IP address (if you are using DDoS protection, make sure you check the true source IP address) of the notification and by comparing the <i>md5</i> field with the MD5 hash you calculate for the notification. If the values do not match then the notification is not genuine and should be ignored. Once the authenticity of the notification has been verified your server should proceed with processing it. The following samples demonstrate the verification of an incoming notification.</p>
+		<p class="text-info"><b>Note:</b> The <i>md5</i> field should match an MD5 hash of a string containing the <i>command</i> field, the <id>id</i> field and your secret key.</p>
+		<div class="tabbable">
+			<ul class="nav nav-tabs">
+				<li class="active"><a href="#cancellation_verify_php" data-toggle="tab">PHP v5.4</a></li>
+				<li><a href="#cancellation_verify_java" data-toggle="tab">Java</a></li>
+				<li><a href="#cancellation_verify_python" data-toggle="tab">Python</a></li>
+				<li><a href="#cancellation_verify_ruby" data-toggle="tab">Ruby</a></li>
+				<li><a href="#cancellation_verify_aspnet" data-toggle="tab">Asp.NET/C#</a></li>
+				<li><a href="#cancellation_verify_asp" data-toggle="tab">ASP/VBS</a></li>
+				<li><a href="#cancellation_verify_cpp" data-toggle="tab">C++</a></li>
+				<li><a href="#cancellation_verify_c" data-toggle="tab">C</a></li>
+			</ul>
+			<div class="tab-content">
+				<div class="tab-pane active" id="cancellation_verify_php">
+{% highlight php %}
+<?php
+function verifyNotification($secretKey, $remoteAddress, $command, $id, $md5)
+{
+	$whiteList = array("94.103.26.178", "94.103.26.181");
+	if(in_array($remoteAddress, $whiteList) === false)
+		return(false);
+
+	$md5Hash = md5($command + $id + $secretKey);
+	if(strtolower($md5Hash) != strtolower($md5))
+		return(false);
+
+	return(true);
+}
+?>
+{% endhighlight %}
+				</div>
+				<div class="tab-pane" id="cancellation_verify_java">
+{% highlight java %}
+boolean verifyNotification(HttpServletRequest request, String secretKey)
+{
+	String[] whiteList = {"94.103.26.178", "94.103.26.181"};    
+	boolean ipFound = false;
+	for(String ip : XSOLLA_IPS)
+	{
+		if(ip.equals(request.getRemoteAddr()))
+			ipFound = true;
+	}
+	if(ipFound == false)
+		return(false);
+
+	String str = request.getParameter("command") + request.getParameter("id") + secretKey;
+	java.security.MessageDigest md5 = java.security.MessageDigest.getInstance("MD5");
+	byte[] array = md5.digest(str.getBytes());
+	StringBuffer sb = new StringBuffer();
+	for(int i=0; i<array.length; ++i)
+		sb.append(Integer.toHexString((array[i] & 0xFF) | 0x100).substring(1, 3));
+	if(!sb.toString().equals(request.getParameter("md5")))
+		return(false);
+
+	return(true);
+}
+{% endhighlight %}
+				</div>
+				<div class="tab-pane" id="cancellation_verify_python">
+{% highlight python %}
+def verifyNotification(self, secretKey, remoteAddress, command, id, md5):
+	m_AllowedIPs = ["94.103.26.178", "94.103.26.181"]
+	if(not remoteAddress in whiteList):
+		return(False)
+
+	md5Hash = md5.new(command + id + secretKey).digest()
+	if(md5Hash.lower() != md5.lower()):
+		return(False)
+
+	return(True)
+{% endhighlight %}
+				</div>
+				<div class="tab-pane" id="cancellation_verify_ruby">
+{% highlight ruby %}
+def verifyNotification(secretKey, remoteAddress, command, id, md5)
+	whiteList = Array.new("94.103.26.178", "94.103.26.181");
+	if(whiteList.include?(remoteAddress) == false)
+		return(false);
+	end
+
+	md5Hash = Digest::MD5.hexdigest(command + id + secretKey);
+	if(md5Hash.downcase != md5.downcase)
+		return(false);
+	end
+
+	return(true);
+{% endhighlight %}
+				</div>
+				<div class="tab-pane" id="cancellation_verify_aspnet">
+{% highlight csharp %}
+bool verifyNotification(string secretKey, string remoteAddress, string command, string id, string md5)
+{
+	List<string> whiteList = new List<string>() {"94.103.26.178", "94.103.26.181"};
+	if(whiteList.Contains(remoteAddress) == false)
+		return(false);
+
+	MD5 md5 = MD5.Create();
+	byte[] pResult = md5.ComputeHash(Encoding.UTF8.GetBytes(command + id + secretKey));
+	StringBuilder oStringBuilder = new StringBuilder();
+	for(int i=0; i<pResult.Length; i++)
+		oStringBuilder.Append(pResult[i].ToString("x2"));
+	if(md5.ToLower().CompareTo(oStringBuilder.ToString()) != 0)
+		return(false);
+
+	return(true);
+}
+{% endhighlight %}
+				</div>
+				<div class="tab-pane" id="cancellation_verify_asp">
+{% highlight aspx-vb %}
+<%
+Function verifyNotification(secretKey, remoteAddress, command, id, md5)
+	whiteList = {"94.103.26.178", "94.103.26.181"}
+	bRemoteAddressAllowed = False
+	For Each allowedIP In whiteList
+		If(remoteAddress = allowedIP) Then
+			bRemoteAddressAllowed = True
+			Exit For
+		End If
+	Next
+	If(bRemoteAddressAllowed = False) Then
+		verifyNotification = False
+	Else
+		md5Hash = MD5(command + id + secretKey)
+		If(md5Hash <> md5) Then
+			verifyNotification = False
+		Else
+			verifyNotification = True
+		End If
+	End If
+End Function
+%>
+{% endhighlight %}
+				</div>
+				<div class="tab-pane" id="cancellation_verify_cpp">
+{% highlight cpp %}
+bool verifyNotification(string secretKey, string remoteAddress, string command, string id, string md5)
+{
+	string * whiteList = {"94.103.26.178", "94.103.26.181"};
+	for(int i=0; i<2; i++)
+	{
+		if(remoteAddress.compare(whiteList[i]) == 0)
+			break;
+	}
+	if(i >= 2)
+		return(false);
+
+	unsigned char pResult[MD5_DIGEST_LENGTH];
+	string md5Hash;
+	string str = command + id + secretKey;
+	MD5((const unsigned char *) str.c_str(), str.length(), pResult);
+	for(int i=0; i<MD5_DIGEST_LENGTH; i++)
+	{
+		char pBuf[8];
+		sprintf(pBuf, "%02X", pResult[i]);
+		md5Hash += pBuf;
+	}
+	if(md5Hash.compare(md5) != 0)
+		return(false);
+
+	return(true);
+}
+{% endhighlight %}
+				</div>
+				<div class="tab-pane" id="cancellation_verify_c">
+{% highlight c %}
+int verifyNotification(char * secretKey, char * remoteAddress, char * command, char * id, char * md5)
+{
+	char ** whiteList = {"94.103.26.178", "94.103.26.181"};
+	for(int i=0; i<2; i++)
+	{
+		if(strcmp(remoteAddress, whiteList[i]) == 0)
+			break;
+	}
+	if(i >= 2)
+		return(0);
+
+	unsigned char pResult[MD5_DIGEST_LENGTH];
+	char md5Hash[(MD5_DIGEST_LENGTH * 2) + 1];
+	char str[1024];
+	strncpy(str, command, 1024);
+	strncat(str, id, 1024);
+	strncat(str, secretKey, 1024);
+	MD5((const unsigned char *) str, strlen(str), pResult);
+	md5Hash[0] = NULL;
+	for(int i=0; i<MD5_DIGEST_LENGTH; i++)
+	{
+		char pBuf[8];
+
+		sprintf(pBuf, "%02X", pResult[i]);
+		strncat(md5Hash, pBuf, (MD5_DIGEST_LENGTH * 2) + 1);
+	}
+	if(strcmp(md5Hash, md5) != 0)
+		return(0);
+
+	return(1);
+}
+{% endhighlight %}
+				</div>
+			</div>
+		</div>
+
+		<h2>Processing the Notification</h2>
+		<p>The first step in processing a cancellation notification is to lookup the specified payment on your server. If the <i>id</i> given in the payment has already been processed by your server you must cancel it. If the <i>id</i> given in the notification has not already been processed by your server then you may ignore it. The following samples demonstrate a possible workflow for processing a cancellation notification.</p>
+		<div class="tabbable">
+			<ul class="nav nav-tabs">
+				<li class="active"><a href="#cancellation_process_php" data-toggle="tab">PHP v5.4</a></li>
+				<li><a href="#cancellation_process_java" data-toggle="tab">Java</a></li>
+				<li><a href="#cancellation_process_python" data-toggle="tab">Python</a></li>
+				<li><a href="#cancellation_process_ruby" data-toggle="tab">Ruby</a></li>
+				<li><a href="#cancellation_process_aspnet" data-toggle="tab">Asp.NET/C#</a></li>
+				<li><a href="#cancellation_process_asp" data-toggle="tab">ASP/VBS</a></li>
+				<li><a href="#cancellation_process_cpp" data-toggle="tab">C++</a></li>
+				<li><a href="#cancellation_process_c" data-toggle="tab">C</a></li>
+			</ul>
+			<div class="tab-content">
+				<div class="tab-pane active" id="cancellation_process_php">
+{% highlight php %}
+<?php
+function processNotification($dbHost, $dbName, $dbUsername, $dbPassword, $strId)
+{
+	// Connect to the local database.
+	$oConnect = new PDO('mysql:host=' . $dbHost . ';dbname=' . $dbName, $dbUsername, $dbPassword);
+
+	// Cancel the specified payment if it exists and has not already been canceled.
+	$oCommand = $oConnect->prepare("UPDATE `payments` SET `canceled` = 1, `date_canceled` = NOW() WHERE `invoice` = ? AND `canceled` = 0");
+	$oResult = $oCommand->execute(array($strId));
+
+	if($oResult)
+	{
+		// The payment has been canceled.
+		$iCode = 0;
+		$strDescription = "OK";
+	}
+	else
+	{
+		// The payment has already been canceled so return an error.
+		$iCode = 20;
+		$strDescription = "The specified payment does not exist or has already been canceled.";
+	}
+
+	return([$iCode, $strDescription]);
+}
+?>
+{% endhighlight %}
+				</div>
+				<div class="tab-pane" id="cancellation_process_java">
+{% highlight java %}
+void processNotification(HttpServletRequest request, String dbHost, String dbName, String dbUsername, String dbPassword)
+{
+	Connection			oConnect;
+	PreparedStatement	oCommand;
+	Integer				iRows;
+	Integer				iCode;
+	String				strDescription;
+
+	// Connect to the local database.
+	oConnect = DriverManager.getConnection("jdbc:mysql://" + dbHost + "/" + dbName, dbUsername, dbPassword);
+
+	// Cancel the specified payment if it exists and has not already been canceled.
+	oCommand = oConnect.prepareStatement("UPDATE `payments` SET `canceled` = 1, `date_canceled` = NOW() WHERE `invoice` = ? AND `canceled` = 0");
+	oCommand.setInt(1, Integer.parseInt(request.getParameter("id")));
+	iRows = oCommand.executeUpdate();
+
+	if(iRows > 0)
+	{
+		// The payment has been canceled.
+		iCode = 0;
+		strDescription = "OK";
+	}
+	else
+	{
+		// The payment has already been canceled so return an error.
+		iCode = 20;
+		strDescription = "The specified payment does not exist or has already been canceled.";
+	}
+
+	request.setAttribute("iCode", iCode);
+	request.setAttribute("strDescription", strDescription);
+}
+{% endhighlight %}
+				</div>
+				<div class="tab-pane" id="cancellation_process_python">
+{% highlight python %}
+def processNotification(self, dbHost, dbName, dbUsername, dbPassword, strId):
+	# Connect to the local database.
+	oConnect = MySQLdb.connect(dbHost, dbUsername, dbPassword, dbName)
+
+	# Cancel the specified payment if it exists and has not already been canceled.
+	strCommand = "UPDATE `payments` SET `canceled` = 1, `date_canceled` = NOW() WHERE `invoice` = %s AND `canceled` = 0"
+	oCursor = oConnect.cursor()
+	oCursor.execute(strCommand, (strId,))
+
+	if(oCursor.rowcount > 0):
+		# The payment has been canceled.
+		iCode = 0
+		strDescription = "OK"
+	else:
+		# The payment has already been canceled so return an error.
+		iCode = 20
+		strDescription = "The specified payment does not exist or has already been canceled."
+
+	# Close the local database connection.
+	oConnect.commit()
+	oCursor.close()
+	oConnect.close()
+
+	return(iCode, strDescription)
+{% endhighlight %}
+				</div>
+				<div class="tab-pane" id="cancellation_process_ruby">
+{% highlight ruby %}
+def processNotification(dbHost, dbName, dbUsername, dbPassword, strId, strDescription)
+	# Connect to the local database.
+	oConnect = Mysql::new(dbHost, dbUsername, dbPassword, dbName);
+
+	# Cancel the specified payment if it exists and has not already been canceled.
+	strCommand = "UPDATE `payments` SET `canceled` = 1, `date_canceled` = NOW() WHERE `invoice` = ? AND `canceled` = 0";
+	oCommand = oConnect.prepare(strCommand);
+	oResult = oCommand.execute(strId);
+
+	if(oResult.affected_rows() > 0)
+		# The payment has been canceled.
+		iCode = 0;
+		strDescription.replace("OK");
+	else
+		# The payment has already been canceled so return an error.
+		iCode = 20;
+		strDescription.replace("The specified payment does not exist or has already been canceled.");
+	end
+
+	# Close the local database connection.
+	oConnect.close();
+
+	return(iCode);
+end
+{% endhighlight %}
+				</div>
+				<div class="tab-pane" id="cancellation_process_aspnet">
+{% highlight csharp %}
+private void processNotification(string dbHost, string dbName, string dbUsername, string dbPassword, string strId, ref ResultCode iCode, ref string strDescription)
+{
+	MySqlCommand			oCommand;
+
+	// Connect to the local database.
+	string strConnectionString = "server=" + dbHost + ";userid=" + dbUsername + ";password=" + dbPassword + ";database=" + dbName;
+	MySqlConnection oConnect = new MySqlConnection(strConnectionString);
+	oConnect.Open();
+
+	// Cancel the specified payment if it exists and has not already been canceled.
+	oCommand = new MySqlCommand("UPDATE `payments` SET `canceled` = 1, `date_canceled` = NOW() WHERE `invoice` = @Id AND `canceled` = 0", m_Connect);
+	oCommand.Prepare();
+	oCommand.Parameters.AddWithValue("@Id", strId);
+
+	if(oCommand.ExecuteNonQuery() == 1)
+	{
+		// The payment has been canceled.
+		iCode = 0;
+		strDescription = "OK";
+	}
+	else
+	{
+		// The payment has already been canceled so return an error.
+		iCode = 20;
+		strDescription = "The specified payment does not exist or has already been canceled.";
+	}
+
+	// Close the local database connection.
+	oConnect.Close();
+}
+{% endhighlight %}
+				</div>
+				<div class="tab-pane" id="cancellation_process_asp">
+{% highlight aspx-vb %}
+<%
+Function processNotification(dbHost, dbName, dbUsername, dbPassword, strId, strDescription)
+	Dim pConnect
+	Dim strSQL
+	Dim oCommand
+	Dim iRecordsAffected
+	Dim iCode
+
+	' Connect to the local database.
+	Set pConnect = Server.CreateObject("ADODB.Connection")
+	pConnect.Open("Driver={MySQL ODBC 5.2w Driver};Server=" & dbHost & ";Database=" & dbName & ";User=" & dbUsername & ";Password=" & dbPassword & ";Option=3;")
+
+	' Cancel the specified payment if it exists and has not already been canceled.
+	strSQL = "UPDATE `payments` SET `canceled` = '1', `date_canceled` = NOW() WHERE `invoice` = ? AND `date_canceled` = 0"
+	Set oCommand = Server.CreateObject("ADODB.Command")
+	oCommand.ActiveConnection = pConnect
+	oCommand.CommandType = 1 'adCmdText
+	oCommand.CommandText = strSQL
+	oCommand.Parameters.Append(oCommand.CreateParameter(, 200, 1, Len(strId), strId)) ' adVarChar, adParamInput
+	iRecordsAffected = 0
+	oCommand.Execute(iRecordsAffected)
+
+	If (iRecordsAffected > 0) Then
+		' The payment has been canceled.
+		iCode = 0
+		strDescription = "OK"
+	Else
+		' The payment has already been canceled so return an error.
+		iCode = 20
+		strDescription = "The specified payment does not exist or has already been canceled."
+	End If
+
+	' Close the local database connection.
+	pConnect.Close()
+
+	processNotification = iCode
+End Function
+%>
+{% endhighlight %}
+				</div>
+				<div class="tab-pane" id="cancellation_process_cpp">
+{% highlight cpp %}
+void processNotification(const string dbHost, const string dbName, const string dbUsername, const string dbPassword, const string strId, int & iCode, string & strDescription)
+{
+	string				strSQL;
+	MYSQL_RES *			pResult;
+	my_ulonglong			iCount;
+
+	// Connect to the local database.
+	MYSQL * pConnect = mysql_init(NULL);
+	pConnect = mysql_real_connect(pConnect, dbHost.c_str(), dbUsername.c_str(), dbPassword.c_str(), dbName.c_str(), 0, NULL, 0);
+
+	// Cancel the specified payment if it exists and has not already been canceled.
+	strSQL = string("UPDATE `payments` SET `canceled` = 1, `date_canceled` = NOW() WHERE `invoice` = ") + strId + string(" AND `canceled` = 0");
+
+	if((mysql_query(pConnect, strSQL.c_str()) == 0) && (mysql_affected_rows(pConnect) > 0))
+	{
+		// The payment has been canceled.
+		iCode = 0;
+		strDescription = "OK";
+	}
+	else
+	{
+		// The payment has already been canceled so return an error.
+		iCode = 20;
+		strDescription = "The specified payment does not exist or has already been canceled.";
+	}
+
+	// Close the local database connection.
+	mysql_free_result(pResult);
+	mysql_close(pConnect);
+}
+{% endhighlight %}
+				</div>
+				<div class="tab-pane" id="cancellation_process_c">
+{% highlight c %}
+int processNotification(const char * dbHost, const char * dbName, const char * dbUsername, const char * dbPassword, const char * strId, char * strDescription)
+{
+	char				strSQL[512];
+	int				iCode;
+
+	/* Connect to the local database. */
+	MYSQL * pConnect = mysql_init(NULL);
+	pConnect = mysql_real_connect(pConnect, dbHost.c_str(), dbUsername.c_str(), dbPassword.c_str(), dbName.c_str(), 0, NULL, 0);
+
+	/* Cancel the specified payment if it exists and has not already been canceled. */
+	sprintf(strSQL, "UPDATE `payments` SET `canceled` = '1', `date_canceled` = NOW() WHERE `invoice` = '%s' AND `canceled` = 0", strId);
+	mysql_query(pConnect, strSQL);
+
+	if((mysql_query(pConnect, strSQL) == 0) && (mysql_affected_rows(pConnect) > 0))
+	{
+		/* The payment has been canceled. */
+		iCode = 0;
+		sprintf(strDescription, "OK");
+	}
+	else
+	{
+		/* The payment has already been canceled so return an error. */
+		iCode = 20;
+		sprintf(strDescription, "The specified payment does not exist or has already been canceled.");
+	}
+
+	/* Close the local database connection. */
+	mysql_free_result(pResult);
+	mysql_close(pConnect);
+
+	return(iCode);
+}
+{% endhighlight %}
+				</div>
+			</div>
+		</div>
+
+		<h2>Response</h2>
+		<p>Once you have finished processing a notification you should generate a response. The response includes a result code from the following list and a description. The response should be a well formed XML document using the following schema and must be provided within 10 seconds of receipt of the notification. The following samples demonstrate the generation of well formed responses.</p>
+		<div class="tabbable">
+			<ul class="nav nav-tabs">
+				<li class="active"><a href="#cancellation_response_php" data-toggle="tab">PHP v5.4</a></li>
+				<li><a href="#cancellation_response_java" data-toggle="tab">Java</a></li>
+				<li><a href="#cancellation_response_python" data-toggle="tab">Python</a></li>
+				<li><a href="#cancellation_response_ruby" data-toggle="tab">Ruby</a></li>
+				<li><a href="#cancellation_response_aspnet" data-toggle="tab">Asp.NET/C#</a></li>
+				<li><a href="#cancellation_response_asp" data-toggle="tab">ASP/VBS</a></li>
+				<li><a href="#cancellation_response_cpp" data-toggle="tab">C++</a></li>
+				<li><a href="#cancellation_response_c" data-toggle="tab">C</a></li>
+			</ul>
+			<div class="tab-content">
+				<div class="tab-pane active" id="cancellation_response_php">
+{% highlight php %}
+<?php
+function generateResponse($iCode, $strDescription)
+{
+	$responseXML = new SimpleXMLElement('<response></response>');
+
+	$responseXML->addChild('result', $iCode);
+	$responseXML->addChild('description', $strDescription);
+
+	header('Content-Type: text/xml; charset=utf8');
+	echo $responseXML->asXML();
+}
+?>
+{% endhighlight %}
+				</div>
+				<div class="tab-pane" id="cancellation_response_java">
+<h3>response.java</h3>
+{% highlight java %}
+void generateResponse(HttpServletRequest request, HttpServletResponse response)
+{
+	request.getRequestDispatcher("response.jsp").forward(request, response);
+}
+{% endhighlight %}
+
+<h3>response.jsp</h3>
+{% highlight jsp %}
+<?xml version="1.0" encoding="UTF-8"?>
+<%@page contentType="text/xml" pageEncoding="UTF-8"%>
+<response>
+	<result><%= request.getAttribute("iCode")%></result>
+	<description><%= request.getAttribute("strDescription")%></description>
+</response>
+{% endhighlight %}
+				</div>
+				<div class="tab-pane" id="cancellation_response_python">
+{% highlight python %}
+def generateResponse(self, responseCode, responseMsg):
+	responseXML = etree.Element('response')
+
+	child = etree.SubElement(responseXML, 'result')
+	child.text = responseCode
+	child = etree.SubElement(responseXML, 'description')
+	child.text = responseMsg
+
+	print 'Content-Type: text/xml charset=utf-8\r\n\r\n'
+	print '<?xml version="1.0" encoding="UTF-8"?>\n', etree.tostring(responseXML, pretty_print=True)
+{% endhighlight %}
+				</div>
+				<div class="tab-pane" id="cancellation_response_ruby">
+{% highlight ruby %}
+def generateResponse(responseCode, responseMsg)
+	responseXML = '<?xml version="1.0" encoding="UTF-8"?>';
+	responseXML += '<response>';
+	responseXML += '<result>' + responseCode.to_s + '</result>';
+	responseXML += '<description>' + responseMsg+ '</description>';
+	responseXML += '</response>';
+
+	print 'Content-Type: text/xml; charset=utf-8\r\n\r\n';
+	print responseXML;
+end
+{% endhighlight %}
+				</div>
+				<div class="tab-pane" id="cancellation_response_aspnet">
+{% highlight csharp %}
+void generateResponse(HttpResponse response, int responseCode, string responseMsg)
+{
+	XElement responseXML = new XElement("response");
+	responseXML.Add(new XElement("result", responseCode));
+	responseXML.Add(new XElement("description", responseMsg));
+
+	response.Headers.Set("Content-Type", "text/xml; charset=UTF-8");
+	response.Write("<?xml version=\\"1.0\\" encoding=\\"UTF-8\\"?>");
+	response.Write(responseXML);
+}
+{% endhighlight %}
+				</div>
+				<div class="tab-pane" id="cancellation_response_asp">
+{% highlight aspx-vb %}
+<%
+Sub generateResponse(responseCode, responseMsg)
+	Response.Write("Content-Type: text/xml charset=utf-8" & vbCrLf & vbCrLf)
+
+	Response.Write("<?xml version=""1.0""?>")
+	Response.Write("<response>")
+
+	Response.Write("<result>" & CStr(responseCode) & "</result>")
+	Response.Write("<comment>" & responseMsg & "</comment>")
+
+	Response.Write("</response>")
+End Sub
+%>
+{% endhighlight %}
+				</div>
+				<div class="tab-pane" id="cancellation_response_cpp">
+{% highlight cpp %}
+void generateResponse(int responseCode, string responseMsg)
+{
+	string responseXML = "<?xml version=\\"1.0\\" encoding=\\"UTF-8\\"?>";
+	responseXML += "<response>";
+
+	responseXML += string("<result>") + static_cast<ostringstream*>(&(ostringstream() << responseCode))->str() + string("</result>");
+	responseXML += string("<description>") + responseMsg + string("</description>");
+
+	responseXML += "</response>";
+
+	cout << "Content-Type: text/xml; charset=utf-8\r\n\r\n";
+	cout << responseXML;
+}
+{% endhighlight %}
+				</div>
+				<div class="tab-pane" id="cancellation_response_c">
+{% highlight c %}
+void generateResponse(int responseCode, const char * responseMsg)
+{
+	printf("Content-Type: text/xml; charset=utf-8\r\n\r\n");
+
+	printf("<?xml version=\\"1.0\\" encoding=\\"UTF-8\\"?>");
+	printf("<response>");
+
+	printf("<result>%d</result>", responseCode);
+	printf("<comment>%s</comment>", responseMsg);
+
+	printf("</response>");
+}
+{% endhighlight %}
+				</div>
+			</div>
+		</div>
+
+		<h3>Response Schema</h3>
+{% highlight xml %}
+<?xml version="1.0" encoding="UTF-8"?>
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified" attributeFormDefault="unqualified">
+	<xsd:element name="response">
+		<xsd:complexType>
+			<xsd:sequence>
+				<xsd:annotation>
+					<xsd:documentation>
+						Outer container for the response.
+					</xsd:documentation>
+				</xsd:annotation>
+				<xsd:element name="result" type="xsd:unsignedInt">
+					<xsd:annotation>
+						<xsd:documentation>
+							A result code indicating how the server handled the notification.
+						</xsd:documentation>
+					</xsd:annotation>
+				</xsd:element>
+				<xsd:element name="description" type="xsd:string">
+					<xsd:annotation>
+						<xsd:documentation>
+							A detailed description of how the server handled the notification.
+						</xsd:documentation>
+					</xsd:annotation>
+				</xsd:element>
+				<xsd:element name="fields">
+					<xsd:complexType>
+						<xsd:sequence>
+							<xsd:annotation>
+								<xsd:documentation>
+									A container for the original notification fields.
+								</xsd:documentation>
+							</xsd:annotation>
+							<xsd:element name="id" type="xsd:unsignedInt">
+								<xsd:annotation>
+									<xsd:documentation>
+										The id field from the original notification.
+									</xsd:documentation>
+								</xsd:annotation>
+							</xsd:element>
+							<xsd:element name="order" type="xsd:string">
+								<xsd:annotation>
+									<xsd:documentation>
+										The order field from the original notification.
+									</xsd:documentation>
+								</xsd:annotation>
+							</xsd:element>
+							<xsd:element name="amount" type="xsd:float">
+								<xsd:annotation>
+									<xsd:documentation>
+										The amount field from the original notification.
+									</xsd:documentation>
+								</xsd:annotation>
+							</xsd:element>
+							<xsd:element name="currency" type="xsd:string">
+								<xsd:annotation>
+									<xsd:documentation>
+										The currency field from the original notification.
+									</xsd:documentation>
+								</xsd:annotation>
+							</xsd:element>
+							<xsd:element name="datetime" type="xsd:dateTime">
+								<xsd:annotation>
+									<xsd:documentation>
+										The datetime field from the original notification.
+									</xsd:documentation>
+								</xsd:annotation>
+							</xsd:element>
+							<xsd:element name="sign" type="xsd:string">
+								<xsd:annotation>
+									<xsd:documentation>
+										The sign field from the original notification.
+									</xsd:documentation>
+								</xsd:annotation>
+							</xsd:element>
+						</xsd:sequence>
+					</xsd:complexType>
+				</xsd:element>
+			</xsd:sequence>
+		</xsd:complexType>
+	</xsd:element>
+</xsd:schema>
+{% endhighlight %}
+
+		<h3>Example Responses</h3>
+		<p>A response indicating a successfully processed transaction:</p>
+{% highlight xml %}
+<?xml version="1.0" encoding="UTF-8"?>
+<response>
+  <result>0</result>
+  <description>Success</description>
+</response>
+{% endhighlight %}
+
+		<p>A response indicating a failure:</p>
+{% highlight xml %}
+<?xml version="1.0" encoding="UTF-8"?>
+<response>
+  <result>20</result>
+  <description>The specified payment was not found in the system.</description>
+</response>
+{% endhighlight %}
+
+		<h2>Result Codes</h2>
+		<table class="table table-striped">
+			<colgroup>
+				<col style="width:20%" />
+				<col style="width:80%" />
+			</colgroup>
+			<thead>
+				<tr>
+					<th>Code</th>
+					<th>Description</th>
+				</tr>
+			</thead>
+			<tbody>
+				<tr>
+					<td>0</td>
+					<td>Success</td>
+				</tr>
+				<tr>
+					<td>10</td>
+					<td>No action taken because this notification is a duplicate of a previous notification.</td>
+				</tr>
+				<tr>
+					<td>20</td>
+					<td>The specified order was not found.</td>
+				</tr>
+				<tr>
+					<td>30</td>
+					<td>Temporary error (the notification must be repeated).</td>
+				</tr>
+				<tr>
+					<td>40</td>
+					<td>Fatal error (the notification should not be repeated).</td>
+				</tr>
+			</tbody>
+		</table>
+	</div>
+</div>

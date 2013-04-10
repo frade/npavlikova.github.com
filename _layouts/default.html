@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Xsolla</title>
+
+    <!-- bootstrap 2.3.0 -->
+    <link href="css/bootstrap.css" rel="stylesheet">
+    <link href="css/bootstrap-responsive.css" rel="stylesheet">
+    <link href="css/bootstrap-responsive-fluid.css" rel="stylesheet">
+
+    <!-- modernizr: create HTML5 elements for older browsers -->
+    <script src="js/modernizr.js"></script>
+
+    <!-- prometheus: template CSS -->
+    <link href="css/prometheus.css" rel="stylesheet">
+    <link href="css/menu.css" rel="stylesheet">
+
+    <!-- prometheus: preview CSS -->
+    <link href="css/preview.css" rel="stylesheet">
+
+    <!-- styles for code syntax highlighting through jekyll/pygment -->
+    <link href="css/syntax.css" rel="stylesheet">
+</head>
+<body>
+
+{% include header.html %}
+
+<div style="max-width: 1024px; margin: auto">
+{% include sidebar.html %}
+
+	<!-- ========================
+					Content
+	============================= -->
+	<div id="content" class="container-fluid">
+{{ content }}
+	</div>
+
+	{% include footer.html %}
+</div>
+
+</body>
+</html>
